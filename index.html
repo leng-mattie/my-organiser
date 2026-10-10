@@ -1,0 +1,2041 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Organiser</title>
+<meta name="description" content="A calm personal organiser for deadlines and a student budget. Works offline; data stays on this device.">
+<!-- PWA / iPhone home-screen support -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Organiser">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#F6F7F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
+<!-- Content-Security-Policy: nothing may load from or be sent to another site -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'none'; base-uri 'none'">
+
+<style>
+/* =========================================================
+   1. DESIGN TOKENS (one accent colour; light + dark)
+   ========================================================= */
+:root{
+  --bg:#F6F7F5; --surface:#FFFFFF; --surface-2:#EEF1EE; --text:#1E2926; --muted:#566360;
+  --border:#DCE2DE; --accent:#2E7D6B; --accent-ink:#FFFFFF; --accent-soft:#E2F0EB; --accent-text:#22695A;
+  --attn:#9C3F25; --attn-soft:#FBEDE7; --focus:#1B5E50;
+  --radius:16px; --radius-sm:10px; --shadow:0 1px 2px rgba(20,40,35,.06),0 2px 10px rgba(20,40,35,.04);
+  --nav-h:68px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121614; --surface:#1A201D; --surface-2:#232A27; --text:#E7ECEA; --muted:#A2ADA9;
+    --border:#2D3532; --accent:#6CC4AE; --accent-ink:#0B1F19; --accent-soft:#1D3730; --accent-text:#8ED6C3;
+    --attn:#F2A890; --attn-soft:#3A241E; --focus:#9BE0CE; --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121614; --surface:#1A201D; --surface-2:#232A27; --text:#E7ECEA; --muted:#A2ADA9;
+  --border:#2D3532; --accent:#6CC4AE; --accent-ink:#0B1F19; --accent-soft:#1D3730; --accent-text:#8ED6C3;
+  --attn:#F2A890; --attn-soft:#3A241E; --focus:#9BE0CE; --shadow:none; color-scheme:dark;
+}
+
+/* =========================================================
+   2. BASE
+   ========================================================= */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  overflow-x:hidden; min-height:100vh;
+}
+h1,h2,h3{line-height:1.25;margin:0 0 .5rem}
+h1{font-size:1.6rem;font-weight:650;letter-spacing:-.01em}
+h2{font-size:1.15rem;font-weight:620}
+h3{font-size:1rem;font-weight:620}
+p{margin:0 0 .75rem}
+a{color:var(--accent-text)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+.vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+[hidden]{display:none!important}
+
+/* Header (respects the iPhone notch) */
+.topbar{
+  position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--bg) 92%,transparent);
+  backdrop-filter:saturate(1.2) blur(8px); -webkit-backdrop-filter:saturate(1.2) blur(8px);
+  padding:calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 16px) 8px calc(env(safe-area-inset-left) + 16px);
+  border-bottom:1px solid var(--border);
+}
+.topbar-inner{max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650}
+.brand-dot{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center}
+.brand-dot svg{width:16px;height:16px}
+.icon-btn{min-width:48px;min-height:48px;border-radius:12px;border:1px solid var(--border);background:var(--surface);display:inline-grid;place-items:center;cursor:pointer}
+.icon-btn svg{width:22px;height:22px}
+
+main{
+  max-width:640px; margin:0 auto;
+  padding:20px calc(env(safe-area-inset-right) + 16px) calc(var(--nav-h) + env(safe-area-inset-bottom) + 32px) calc(env(safe-area-inset-left) + 16px);
+}
+.page-head{margin-bottom:16px}
+.sub{color:var(--muted)}
+
+/* Bottom navigation (respects the iPhone home bar) */
+.nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--surface); border-top:1px solid var(--border);
+  padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.nav ul{list-style:none;margin:0 auto;padding:0;display:grid;grid-template-columns:repeat(4,1fr);max-width:640px}
+.nav a{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:var(--nav-h);
+  text-decoration:none;color:var(--muted);font-size:.9rem;font-weight:560;
+}
+.nav a svg{width:24px;height:24px}
+.nav a[aria-current="page"]{color:var(--accent-text)}
+.nav a[aria-current="page"] .nav-pill{background:var(--accent-soft)}
+.nav-pill{padding:3px 16px;border-radius:999px;display:grid;place-items:center}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card.soft{background:var(--accent-soft);border-color:transparent}
+.card.attn{background:var(--attn-soft);border-color:transparent}
+.card h2{display:flex;align-items:center;gap:8px}
+.row{display:flex;gap:12px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.stack>*+*{margin-top:12px}
+
+/* =========================================================
+   3. FORMS
+   ========================================================= */
+.field{margin-bottom:18px}
+label,.label{display:block;font-weight:600;margin-bottom:6px}
+.hint{color:var(--muted);font-size:1rem;margin:6px 0 0}
+input[type=text],input[type=date],input[type=time],input[type=search],select,textarea{
+  width:100%;min-height:52px;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface);font-size:1rem;appearance:none;-webkit-appearance:none;
+}
+input[type=date],input[type=time]{display:block;min-width:0}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23768380' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;padding-right:40px;
+}
+textarea{min-height:88px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+[aria-invalid="true"]{border-color:var(--attn)!important}
+.big-input{min-height:60px!important;font-size:1.15rem!important;border-radius:14px!important;padding-left:46px!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23768380' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:16px center}
+.big-label{font-size:1.15rem}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.two>.field{min-width:0}
+.err{color:var(--attn);font-weight:560;margin:6px 0 0;font-size:1rem;min-height:0}
+.err:empty{display:none}
+.err::before{content:"⚠ "}
+.err-summary{background:var(--attn-soft);color:var(--attn);padding:12px 14px;border-radius:var(--radius-sm);font-weight:560}
+.err-summary:empty{display:none}
+.money-input{position:relative}
+.money-input span{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.money-input input{padding-left:30px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 18px;border-radius:12px;
+  border:1.5px solid var(--border);background:var(--surface);font-weight:600;cursor:pointer;text-decoration:none;color:var(--text)}
+.btn:hover{border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn-primary:hover{filter:brightness(1.06)}
+.btn-big{width:100%;min-height:58px;font-size:1.1rem;border-radius:14px}
+.btn-quiet{border-color:transparent;background:transparent;color:var(--accent-text)}
+.btn-danger{color:var(--attn);border-color:color-mix(in srgb,var(--attn) 40%,var(--border))}
+.btn-sm{min-height:44px;padding:8px 14px}
+.btn svg{width:20px;height:20px;flex:none}
+.btn-row{display:flex;flex-wrap:wrap;gap:10px}
+
+/* Confirmation after adding */
+.confirm{margin-top:16px;background:var(--accent-soft);border-radius:var(--radius);padding:16px 18px;display:flex;gap:12px;align-items:flex-start}
+.confirm:empty{display:none}
+.confirm svg{flex:none;width:26px;height:26px;color:var(--accent-text)}
+.confirm a{font-weight:600}
+
+/* =========================================================
+   4. TIMETABLE
+   ========================================================= */
+.today-msg .date{font-weight:650;font-size:1.05rem}
+.top3 ol{margin:0;padding:0;list-style:none;counter-reset:t}
+.top3 li{counter-increment:t;display:grid;grid-template-columns:32px 1fr;gap:10px;padding:10px 0;border-top:1px solid color-mix(in srgb,var(--accent) 18%,transparent)}
+.top3 li:first-child{border-top:0;padding-top:4px}
+.top3 li::before{content:counter(t);width:28px;height:28px;border-radius:50%;background:var(--surface);color:var(--accent-text);display:grid;place-items:center;font-weight:700;font-size:.95rem}
+.top3 .t{font-weight:600}
+.top3 .why{color:var(--muted)}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px 6px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;min-height:44px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--border);background:var(--surface);font-weight:600;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tab .n{opacity:.75;font-weight:500;margin-left:4px}
+
+.list{list-style:none;margin:0;padding:0}
+.item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 14px 10px;margin-bottom:10px;display:grid;grid-template-columns:48px 1fr;gap:4px 10px;box-shadow:var(--shadow)}
+.item.is-done .title{text-decoration:line-through;color:var(--muted)}
+.tick{width:44px;height:44px;border-radius:50%;border:2px solid var(--border);background:var(--surface);cursor:pointer;display:grid;place-items:center;padding:0}
+.tick svg{width:22px;height:22px;opacity:0;color:var(--accent-ink)}
+.tick:hover svg{opacity:.35;color:var(--accent-text)}
+.tick[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.tick[aria-pressed="true"] svg{opacity:1;color:var(--accent-ink)}
+.item .title{font-weight:600;overflow-wrap:anywhere}
+.due{font-weight:650}
+.due.over{color:var(--attn)}
+.due.today{color:var(--accent-text)}
+.meta{color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.note{color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
+.prio{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--text)}
+.prio svg{width:16px;height:16px}
+.prio .bar-on{fill:currentColor}.prio .bar-off{fill:var(--border)}
+.prio.High{color:var(--attn)}
+.item-actions{grid-column:2}
+details.more>summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;cursor:pointer;color:var(--accent-text);font-weight:600;padding:0 4px}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary svg{width:18px;height:18px;transition:transform .15s}
+details.more[open]>summary svg{transform:rotate(180deg)}
+details.more .btn-row{padding:6px 0 6px}
+.empty{text-align:center;color:var(--muted);padding:28px 12px}
+.empty svg{width:44px;height:44px;color:var(--accent);opacity:.7;display:block;margin:0 auto 8px}
+.callout{display:flex;gap:10px;align-items:flex-start;color:var(--muted)}
+.callout svg{flex:none;width:20px;height:20px;margin-top:3px}
+
+/* =========================================================
+   5. BUDGET
+   ========================================================= */
+.total{font-size:2.1rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.accounts{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:16px}
+@media (min-width:600px){.accounts{grid-template-columns:1fr 1fr}}
+.accounts .card{margin:0}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border)}
+.kv:first-of-type{border-top:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums;font-weight:560;text-align:right}
+.kv.strong dt,.kv.strong dd{color:var(--text);font-weight:700}
+.balance{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.neg{color:var(--attn)}
+.progress{height:14px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin:10px 0 6px}
+.progress>span{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .3s}
+.progress.over>span{background:var(--attn)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat{background:var(--surface-2);border-radius:12px;padding:10px;text-align:center}
+.stat .v{font-weight:700;font-variant-numeric:tabular-nums;display:block}
+.stat .l{color:var(--muted);font-size:1rem}
+.tx{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 0;border-top:1px solid var(--border)}
+.tx:first-child{border-top:0}
+.tx .amt{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.tx .amt.in{color:var(--accent-text)}
+.tx .meta,.tx details{grid-column:1/-1}
+.seg{display:inline-flex;border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
+.seg button{min-height:44px;padding:6px 14px;border:0;background:var(--surface);cursor:pointer;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chart svg{width:100%;height:auto;display:block;max-width:440px}
+.chart text{fill:var(--text);font-size:16px}
+.chart .v{fill:var(--muted)}
+.chart .bg{fill:var(--surface-2)}
+.chart .fg{fill:var(--accent)}
+
+/* =========================================================
+   6. SETTINGS
+   ========================================================= */
+.chips{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border-radius:999px;padding:4px 4px 4px 14px;font-weight:560}
+.chip button{width:44px;height:44px;border-radius:50%;border:0;background:transparent;cursor:pointer;display:grid;place-items:center;color:var(--muted)}
+.chip button:hover{background:var(--border)}
+.chip button svg{width:16px;height:16px}
+.report{margin-top:12px}
+.report ul{margin:6px 0 0;padding-left:20px}
+.report li{margin:4px 0}
+.warn-line{display:flex;gap:10px;align-items:flex-start;background:var(--attn-soft);color:var(--attn);border-radius:12px;padding:12px 14px;font-weight:560;margin-bottom:16px}
+.warn-line svg{flex:none;width:20px;height:20px;margin-top:3px}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.file-btn:focus-within{outline:3px solid var(--focus);outline-offset:2px}
+
+/* Toast (with Undo) */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 14px);z-index:40;
+  background:var(--text);color:var(--bg);border-radius:14px;padding:8px 8px 8px 16px;display:flex;align-items:center;gap:12px;
+  max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.2)}
+.toast button{min-height:44px;padding:6px 14px;border-radius:10px;border:0;background:transparent;color:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.toast:empty{display:none}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
+@media (max-width:360px){.two{grid-template-columns:1fr}.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<a class="vh" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-dot" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <span>My Organiser</span>
+    </div>
+    <button class="icon-btn" id="theme-btn" type="button" data-action="toggle-theme" aria-label="Switch to dark mode"></button>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <div id="storage-banner" class="warn-line" role="alert" hidden></div>
+
+  <!-- ===================== PAGE 1: ADD ===================== -->
+  <section id="page-add" class="page" aria-labelledby="h-add">
+    <div class="page-head">
+      <h1 id="h-add">Add</h1>
+      <p class="sub" id="add-sub">Key it in once. It goes where it belongs.</p>
+    </div>
+    <form id="add-form" novalidate autocomplete="off">
+      <div class="field">
+        <label for="f-title" class="big-label" id="l-title">What do you need to add?</label>
+        <input id="f-title" class="big-input" type="text" maxlength="120" enterkeyhint="next" placeholder="e.g. Submit HSBC assessment" aria-describedby="e-title">
+        <p class="err" id="e-title"></p>
+      </div>
+
+      <div class="field">
+        <label for="f-dest">Goes to</label>
+        <select id="f-dest">
+          <option value="timetable">Timetable</option>
+          <option value="budget">Budget</option>
+        </select>
+      </div>
+
+      <!-- Timetable fields -->
+      <fieldset id="grp-tt">
+        <legend class="vh">Timetable details</legend>
+        <div class="field">
+          <label for="f-hasdl">Has a deadline?</label>
+          <select id="f-hasdl" aria-describedby="e-hasdl">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+          <p class="err" id="e-hasdl"></p>
+        </div>
+        <div id="grp-deadline" class="two">
+          <div class="field">
+            <label for="f-date">Deadline date</label>
+            <input id="f-date" type="date" min="2000-01-01" max="2100-12-31" aria-describedby="h-date e-date">
+            <p class="hint" id="h-date"></p>
+            <p class="err" id="e-date"></p>
+          </div>
+          <div class="field">
+            <label for="f-time">Time <span class="sub">(optional)</span></label>
+            <input id="f-time" type="time" aria-describedby="e-time">
+            <p class="err" id="e-time"></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-priority">Priority</label>
+          <select id="f-priority" aria-describedby="e-priority">
+            <option value="">Choose priority…</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <p class="err" id="e-priority"></p>
+        </div>
+        <div class="field">
+          <label for="f-note">Note <span class="sub">(optional)</span></label>
+          <textarea id="f-note" maxlength="500" rows="2" aria-describedby="e-note"></textarea>
+          <p class="err" id="e-note"></p>
+        </div>
+      </fieldset>
+
+      <!-- Budget fields -->
+      <fieldset id="grp-bud" hidden>
+        <legend class="vh">Budget details</legend>
+        <div class="field">
+          <label for="f-type">Type</label>
+          <select id="f-type" aria-describedby="e-type">
+            <option value="out">Money out (spent)</option>
+            <option value="in">Money in (received)</option>
+            <option value="transfer">Transfer between accounts</option>
+            <option value="upcoming">Upcoming expense</option>
+          </select>
+          <p class="err" id="e-type"></p>
+        </div>
+        <div class="field" id="grp-account">
+          <label for="f-account" id="l-account">Account</label>
+          <select id="f-account" aria-describedby="e-account">
+            <option value="HSBC">HSBC (expenditure)</option>
+            <option value="Monzo">Monzo (savings)</option>
+          </select>
+          <p class="err" id="e-account"></p>
+        </div>
+        <div class="two" id="grp-transfer" hidden>
+          <div class="field">
+            <label for="f-from">From</label>
+            <select id="f-from" aria-describedby="e-from">
+              <option value="HSBC">HSBC</option>
+              <option value="Monzo">Monzo</option>
+            </select>
+            <p class="err" id="e-from"></p>
+          </div>
+          <div class="field">
+            <label for="f-to">To</label>
+            <select id="f-to" aria-describedby="e-to">
+              <option value="HSBC">HSBC</option>
+              <option value="Monzo" selected>Monzo</option>
+            </select>
+            <p class="err" id="e-to"></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-amount">Amount in £</label>
+          <div class="money-input"><span aria-hidden="true">£</span>
+            <input id="f-amount" type="text" inputmode="decimal" maxlength="14" placeholder="0.00" aria-describedby="e-amount">
+          </div>
+          <p class="err" id="e-amount"></p>
+        </div>
+        <div class="field" id="grp-cat">
+          <label for="f-category">Category</label>
+          <select id="f-category" aria-describedby="e-category"></select>
+          <p class="err" id="e-category"></p>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="f-bdate" id="l-bdate">Date</label>
+            <input id="f-bdate" type="date" min="2000-01-01" max="2100-12-31" aria-describedby="h-bdate e-bdate">
+            <p class="hint" id="h-bdate"></p>
+            <p class="err" id="e-bdate"></p>
+          </div>
+          <div class="field" id="grp-due" hidden>
+            <label for="f-due">Due date</label>
+            <input id="f-due" type="date" min="2000-01-01" max="2100-12-31" aria-describedby="h-due e-due">
+            <p class="hint" id="h-due"></p>
+            <p class="err" id="e-due"></p>
+          </div>
+        </div>
+      </fieldset>
+
+      <p class="err-summary" id="err-summary" role="alert"></p>
+      <button class="btn btn-primary btn-big" type="submit" id="f-submit">Add</button>
+      <button class="btn btn-quiet btn-big" type="button" id="f-cancel" data-action="cancel-edit" hidden>Cancel editing</button>
+    </form>
+    <div id="add-confirm" class="confirm" role="status" aria-live="polite"></div>
+  </section>
+
+  <!-- ===================== PAGE 2: TIMETABLE ===================== -->
+  <section id="page-timetable" class="page" aria-labelledby="h-tt" hidden>
+    <div class="page-head"><h1 id="h-tt">Timetable</h1></div>
+    <div id="tt-content"></div>
+  </section>
+
+  <!-- ===================== PAGE 3: BUDGET ===================== -->
+  <section id="page-budget" class="page" aria-labelledby="h-bud" hidden>
+    <div class="page-head"><h1 id="h-bud">Budget</h1></div>
+    <div id="bud-content"></div>
+  </section>
+
+  <!-- ===================== PAGE 4: SETTINGS ===================== -->
+  <section id="page-settings" class="page" aria-labelledby="h-set" hidden>
+    <div class="page-head"><h1 id="h-set">Settings &amp; backup</h1></div>
+    <p class="warn-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span>Use <strong>Export backup</strong> every week — your browser can clear stored data without warning.</span></p>
+
+    <form class="card" id="money-form" novalidate>
+      <h2>Money settings</h2>
+      <div class="two">
+        <div class="field"><label for="s-starthsbc">HSBC starting balance</label>
+          <div class="money-input"><span aria-hidden="true">£</span><input id="s-starthsbc" type="text" inputmode="decimal" aria-describedby="e-starthsbc"></div>
+          <p class="err" id="e-starthsbc"></p></div>
+        <div class="field"><label for="s-startmonzo">Monzo starting balance</label>
+          <div class="money-input"><span aria-hidden="true">£</span><input id="s-startmonzo" type="text" inputmode="decimal" aria-describedby="e-startmonzo"></div>
+          <p class="err" id="e-startmonzo"></p></div>
+        <div class="field"><label for="s-budget">HSBC monthly budget</label>
+          <div class="money-input"><span aria-hidden="true">£</span><input id="s-budget" type="text" inputmode="decimal" aria-describedby="e-budget"></div>
+          <p class="err" id="e-budget"></p></div>
+        <div class="field"><label for="s-goal">Monzo savings goal <span class="sub">(optional)</span></label>
+          <div class="money-input"><span aria-hidden="true">£</span><input id="s-goal" type="text" inputmode="decimal" placeholder="0.00" aria-describedby="e-goal"></div>
+          <p class="err" id="e-goal"></p></div>
+      </div>
+      <p class="hint" style="margin:-6px 0 14px">Starting balance = what was in the account before you began using this app. Use a minus sign for an overdraft, e.g. -50.</p>
+      <button class="btn btn-primary" type="submit">Save money settings</button>
+      <span id="money-saved" class="sub" role="status" aria-live="polite" style="margin-left:8px"></span>
+    </form>
+
+    <div class="card">
+      <h2>Budget categories</h2>
+      <ul class="chips" id="cat-list"></ul>
+      <form id="cat-form" novalidate>
+        <label for="s-newcat">Add a category</label>
+        <div class="row"><input id="s-newcat" type="text" maxlength="30" aria-describedby="e-newcat"><button class="btn" type="submit">Add</button></div>
+        <p class="err" id="e-newcat"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Excel</h2>
+      <p class="sub">Download everything as an Excel workbook (sheets: Timetable, Budget transactions, Upcoming expenses, Settings) with drop-down lists built in. Edit it in Excel and import it back here.</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" type="button" data-action="export-xlsx">Export to Excel</button>
+        <label class="btn file-btn">Import from Excel/CSV<input type="file" id="import-file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label>
+      </div>
+      <div class="field" style="margin:14px 0 0">
+        <label for="s-importmode">When importing</label>
+        <select id="s-importmode">
+          <option value="add">Add to my data (skip duplicates)</option>
+          <option value="replace">Replace my data with the file</option>
+        </select>
+      </div>
+      <div id="import-report" class="report" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="sub" id="backup-when"></p>
+      <div class="btn-row">
+        <button class="btn btn-primary" type="button" data-action="export-json">Export backup</button>
+        <label class="btn file-btn">Import backup<input type="file" id="import-json" accept=".json,application/json"></label>
+      </div>
+      <div id="json-report" class="report" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Appearance</h2>
+      <label for="s-theme">Theme</label>
+      <select id="s-theme">
+        <option value="system">Follow my device</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <h2>Data</h2>
+      <p class="sub" id="storage-status"></p>
+      <div class="btn-row">
+        <button class="btn" type="button" data-action="load-sample">Load sample data</button>
+        <button class="btn btn-danger" type="button" data-action="clear-all">Clear all data</button>
+      </div>
+      <p class="hint">Privacy: everything stays on this device. No accounts, no analytics, nothing is sent anywhere.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="nav" aria-label="Main">
+  <ul>
+    <li><a href="#add" data-page="add"><span class="nav-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>Add</a></li>
+    <li><a href="#timetable" data-page="timetable"><span class="nav-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M8 15l2 2 4-4"/></svg></span>Timetable</a></li>
+    <li><a href="#budget" data-page="budget"><span class="nav-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 15h2"/></svg></span>Budget</a></li>
+    <li><a href="#settings" data-page="settings"><span class="nav-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span>Settings</a></li>
+  </ul>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Zip library used to build/read .xlsx files. Bundled locally: nothing loads from the internet. -->
+<script src="lib/jszip.min.js"></script>
+<script>
+"use strict";
+/* =========================================================================
+   SECTION A — CONSTANTS & SMALL HELPERS
+   ========================================================================= */
+const TZ = 'Europe/London';
+const STORAGE_KEY = 'myOrganiser.v1';
+const ACCOUNTS = ['HSBC', 'Monzo'];
+const ACCOUNT_LABEL = { HSBC: 'HSBC (expenditure)', Monzo: 'Monzo (savings)' };
+const PRIORITIES = ['High', 'Medium', 'Low'];
+const PRIORITY_WEIGHT = { High: 3, Medium: 2, Low: 1 };
+const TYPE_LABEL = { out: 'Money out', in: 'Money in', transfer: 'Transfer', upcoming: 'Upcoming expense' };
+const DEFAULT_CATEGORIES = ['Food', 'Travel', 'Study', 'Bills', 'Savings', 'Fun', 'Other'];
+const MAX_PENCE = 100000000;            // £1,000,000 — anything bigger is almost certainly a typo
+const DAY_MS = 86400000;
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const uid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+
+/* ---- Dates. Internally every date is "YYYY-MM-DD"; shown to you as DD/MM/YYYY.
+        "Today" is always worked out in Europe/London, whatever the device clock zone. ---- */
+const londonParts = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' });
+function todayISO(now = new Date()) {
+  const p = Object.fromEntries(londonParts.formatToParts(now).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+function isValidISO(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  if (y < 2000 || y > 2100) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+const dayNum = iso => { const [y, m, d] = iso.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / DAY_MS); };
+const daysBetween = (a, b) => dayNum(b) - dayNum(a);
+const addDays = (iso, n) => new Date((dayNum(iso) + n) * DAY_MS).toISOString().slice(0, 10);
+const weekdayIdx = iso => ((dayNum(iso) + 3) % 7 + 7) % 7;     // Monday = 0 (UK weeks start on Monday)
+const fmtDate = iso => iso ? iso.split('-').reverse().join('/') : '';
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const fmtLong = iso => { const [y, m, d] = iso.split('-').map(Number); return `${WEEKDAYS[weekdayIdx(iso)]} ${d} ${MONTHS[m - 1]}`; };
+const fmtShortDay = iso => WEEKDAYS[weekdayIdx(iso)].slice(0, 3) + ' ' + fmtDate(iso);
+
+/** Accepts DD/MM/YYYY, D/M/YYYY, DD-MM-YYYY, DD.MM.YYYY or YYYY-MM-DD. Returns ISO or null. */
+function parseDateInput(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  let m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/))) {
+    const iso = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    return isValidISO(iso) ? iso : null;
+  }
+  if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/))) {
+    const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    return isValidISO(iso) ? iso : null;
+  }
+  return null;
+}
+function parseTime(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) return null;
+  const h = +m[1], mi = +m[2];
+  if (h > 23 || mi > 59) return null;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+}
+
+/* ---- Money. Stored as whole pence (integers) so sums never drift. ---- */
+const gbp = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
+const money = p => (p < 0 ? '−' : '') + gbp.format(Math.abs(p) / 100);
+const signed = (sign, p) => (p ? sign : '') + gbp.format(p / 100);   // '+£5.00' / '−£5.00', but plain '£0.00'
+const penceToStr = p => (p / 100).toFixed(2);
+
+/* =========================================================================
+   SECTION B — DATA (state shape, defaults)
+   ========================================================================= */
+function defaultState() {
+  return {
+    app: 'my-organiser', version: 1,
+    tasks: [],          // {id,title,hasDeadline,date,time,priority,note,done,doneAt,createdAt}
+    transactions: [],   // {id,title,type:'out'|'in'|'transfer',account,from,to,amount(pence),category,date,createdAt}
+    upcoming: [],       // {id,title,account,amount(pence),category,date,due,createdAt}
+    settings: { startHSBC: 0, startMonzo: 0, monthlyBudget: 0, savingsGoal: 0, categories: DEFAULT_CATEGORIES.slice(), theme: 'system', lastBackupAt: '' }
+  };
+}
+let state = defaultState();
+
+/* =========================================================================
+   SECTION C — VALIDATION (shared by the Add form, Excel/CSV import and JSON restore)
+   Each validator takes "raw" values (as typed or as read from a file) and returns
+   { value, errors } where errors is { fieldKey: friendly message }.
+   ========================================================================= */
+function validateMoney(raw, { allowZero = false, allowNegative = false, required = true } = {}) {
+  let s = typeof raw === 'number' ? String(+raw.toFixed(6)) : String(raw ?? '').trim();
+  s = s.replace(/[£,\s]/g, '').replace(/^−/, '-');
+  if (s === '') return required ? { error: 'Please enter an amount in £.' } : { value: 0 };
+  if (!/^-?\d+(\.\d+)?$/.test(s) && !/^-?\.\d+$/.test(s)) return { error: 'Numbers only, for example 12.50.' };
+  const neg = s.startsWith('-');
+  if (neg && !allowNegative) return { error: 'Amounts can’t be negative. Choose “Money out” for spending instead.' };
+  const dec = (s.split('.')[1] || '');
+  if (dec.length > 2) return { error: 'Use at most two decimal places (pence), e.g. 4.99.' };
+  const pence = Math.round(parseFloat(s) * 100);
+  if (!allowZero && pence === 0) return { error: 'The amount must be more than £0.' };
+  if (Math.abs(pence) > MAX_PENCE) return { error: 'That’s over £1,000,000 — please check for a typo.' };
+  return { value: pence };
+}
+
+function normaliseChoice(v, options) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return options.find(o => o.toLowerCase() === s) || null;
+}
+function normaliseAccount(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (s.startsWith('hsbc')) return 'HSBC';
+  if (s.startsWith('monzo')) return 'Monzo';
+  return null;
+}
+function normaliseType(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (['out', 'money out', 'money out (spent)', 'spent', 'expense'].includes(s)) return 'out';
+  if (['in', 'money in', 'money in (received)', 'received', 'income'].includes(s)) return 'in';
+  if (['transfer', 'transfer between accounts'].includes(s)) return 'transfer';
+  if (['upcoming', 'upcoming expense'].includes(s)) return 'upcoming';
+  return null;
+}
+function normaliseYesNo(v) {
+  if (v === true) return 'Yes'; if (v === false) return 'No';
+  const s = String(v ?? '').trim().toLowerCase();
+  if (['yes', 'y', 'true', '1'].includes(s)) return 'Yes';
+  if (['no', 'n', 'false', '0', ''].includes(s)) return s === '' ? '' : 'No';
+  return null;
+}
+function checkTitle(t, errors, key = 'title') {
+  const s = String(t ?? '').trim().replace(/\s+/g, ' ');
+  if (!s) errors[key] = 'Please type what you need to add.';
+  else if (s.length > 120) errors[key] = 'Keep it under 120 characters.';
+  return s;
+}
+function checkDate(v, errors, key, emptyMsg) {
+  if (v === '' || v === null || v === undefined) { errors[key] = emptyMsg; return ''; }
+  const iso = parseDateInput(v);
+  if (!iso) errors[key] = 'That date doesn’t look right. Use DD/MM/YYYY between 2000 and 2100.';
+  return iso || '';
+}
+
+function validateTask(raw) {
+  const errors = {};
+  const title = checkTitle(raw.title, errors);
+  const hasDl = normaliseYesNo(raw.hasDeadline);
+  if (!hasDl) errors.hasdl = 'Choose Yes or No for “Has a deadline?”.';
+  let date = '', time = '';
+  if (hasDl === 'Yes') {
+    date = checkDate(raw.date, errors, 'date', 'Pick a deadline date (or choose “No” for no deadline).');
+    const t = parseTime(raw.time);
+    if (t === null) errors.time = 'Use a time like 09:30, or leave it blank.';
+    else time = t;
+  }
+  const priority = normaliseChoice(raw.priority, PRIORITIES);
+  if (!priority) errors.priority = 'Choose a priority: High, Medium or Low.';
+  const note = String(raw.note ?? '').trim();
+  if (note.length > 500) errors.note = 'Keep the note under 500 characters.';
+  const doneYN = normaliseYesNo(raw.done ?? '');
+  if (doneYN === null) errors.done = 'Done must be Yes or No.';
+  return {
+    errors,
+    value: { title, hasDeadline: hasDl === 'Yes', date, time, priority, note, done: doneYN === 'Yes' }
+  };
+}
+
+/** Budget entries: type out/in/transfer → transaction; upcoming → upcoming expense. */
+function validateBudget(raw) {
+  const errors = {};
+  const title = checkTitle(raw.title, errors);
+  const type = normaliseType(raw.type);
+  if (!type) errors.type = 'Choose a type: Money out, Money in, Transfer or Upcoming expense.';
+  const amt = validateMoney(raw.amount);
+  if (amt.error) errors.amount = amt.error;
+  const v = { title, type, amount: amt.value || 0 };
+  if (type === 'transfer') {
+    const from = normaliseAccount(raw.from), to = normaliseAccount(raw.to);
+    if (!from) errors.from = 'Choose the account the money leaves (HSBC or Monzo).';
+    if (!to) errors.to = 'Choose the account the money goes to (HSBC or Monzo).';
+    if (from && to && from === to) errors.to = '“From” and “To” must be different accounts.';
+    Object.assign(v, { from, to, account: '', category: '' });
+  } else {
+    const account = normaliseAccount(raw.account);
+    if (!account) errors.account = 'Choose an account: HSBC or Monzo.';
+    const category = normaliseChoice(raw.category, state.settings.categories);
+    if (!category) errors.category = String(raw.category ?? '').trim()
+      ? `“${String(raw.category).trim()}” isn’t one of your categories. Add it in Settings first.`
+      : 'Choose a category.';
+    Object.assign(v, { account, category, from: '', to: '' });
+  }
+  v.date = checkDate(raw.date, errors, 'bdate', 'Pick a date.');
+  if (type === 'upcoming') v.due = checkDate(raw.due, errors, 'due', 'Pick the date this expense is due.');
+  return { errors, value: v, kind: type === 'upcoming' ? 'upcoming' : 'txn' };
+}
+
+/* Convert stored objects back into "raw" form (used to fill the edit form and to restore backups). */
+const taskToRaw = t => ({ title: t.title, hasDeadline: t.hasDeadline ? 'Yes' : 'No', date: t.date, time: t.time, priority: t.priority, note: t.note, done: t.done ? 'Yes' : 'No' });
+const txnToRaw = t => ({ title: t.title, type: t.type, account: t.account, from: t.from, to: t.to, amount: penceToStr(t.amount), category: t.category, date: t.date });
+const upToRaw = u => ({ title: u.title, type: 'upcoming', account: u.account, amount: penceToStr(u.amount), category: u.category, date: u.date, due: u.due });
+
+/* Duplicate keys: same thing, same date, same amount → probably a double entry. */
+const taskKey = t => [t.title.toLowerCase(), t.hasDeadline ? t.date : '', t.time || ''].join('|');
+const txnKey = t => [t.title.toLowerCase(), t.type, t.account || '', t.from || '', t.to || '', t.amount, t.date].join('|');
+const upKey = u => [u.title.toLowerCase(), u.account, u.amount, u.due].join('|');
+
+/* =========================================================================
+   SECTION D — STORAGE (localStorage with try/catch + in-memory fallback)
+   ========================================================================= */
+const store = {
+  ok: true, memory: null, loadProblems: 0,
+  read() {
+    try { return localStorage.getItem(STORAGE_KEY); }
+    catch (e) { this.ok = false; return this.memory; }
+  },
+  write(json) {
+    this.memory = json;   // always keep an in-memory copy
+    try { localStorage.setItem(STORAGE_KEY, json); this.ok = true; }
+    catch (e) { this.ok = false; }
+  }
+};
+function save() {
+  store.write(JSON.stringify(state));
+  renderStorageBanner();
+}
+function load() {
+  const raw = store.read();
+  if (!raw) { state = defaultState(); return; }
+  try {
+    const restored = sanitiseState(JSON.parse(raw));
+    state = restored.state;
+    store.loadProblems = restored.rejected.length;
+  } catch (e) {
+    state = defaultState();
+    store.loadProblems = -1;
+  }
+}
+/** Rebuild a clean state from untrusted data (storage or a backup file). Returns rejected item notes. */
+function sanitiseState(obj) {
+  if (!obj || typeof obj !== 'object') throw new Error('Not a backup file');
+  const s = defaultState(), rejected = [];
+  const st = obj.settings || {};
+  // Settings first (categories are needed to validate transactions)
+  const cats = Array.isArray(st.categories) ? st.categories.map(c => String(c).trim()).filter(Boolean) : [];
+  const uniq = [];
+  cats.forEach(c => { if (c.length <= 30 && !uniq.some(u => u.toLowerCase() === c.toLowerCase())) uniq.push(c); });
+  s.settings.categories = uniq.length ? uniq : DEFAULT_CATEGORIES.slice();
+  const intOr0 = (v, neg) => (Number.isInteger(v) && Math.abs(v) <= MAX_PENCE && (neg || v >= 0)) ? v : 0;
+  s.settings.startHSBC = intOr0(st.startHSBC, true);
+  s.settings.startMonzo = intOr0(st.startMonzo, true);
+  s.settings.monthlyBudget = intOr0(st.monthlyBudget, false);
+  s.settings.savingsGoal = intOr0(st.savingsGoal, false);
+  s.settings.theme = ['system', 'light', 'dark'].includes(st.theme) ? st.theme : 'system';
+  s.settings.lastBackupAt = isValidISO(st.lastBackupAt) ? st.lastBackupAt : '';
+  const prev = state; state = s;     // validators read categories from state
+  try {
+    (Array.isArray(obj.tasks) ? obj.tasks : []).forEach((t, i) => {
+      const r = validateTask(taskToRaw(t || {}));
+      if (Object.keys(r.errors).length) return rejected.push(`Timetable item ${i + 1} (“${(t && t.title) || 'untitled'}”): ${Object.values(r.errors)[0]}`);
+      s.tasks.push({ ...r.value, id: String(t.id || uid()), doneAt: t.doneAt || '', createdAt: t.createdAt || new Date().toISOString() });
+    });
+    (Array.isArray(obj.transactions) ? obj.transactions : []).forEach((t, i) => {
+      const r = validateBudget(txnToRaw({ ...t, amount: Number.isInteger(t && t.amount) ? t.amount : NaN }));
+      if (r.kind !== 'txn' || Object.keys(r.errors).length) return rejected.push(`Transaction ${i + 1} (“${(t && t.title) || 'untitled'}”): ${Object.values(r.errors)[0] || 'wrong type'}`);
+      s.transactions.push({ ...r.value, id: String(t.id || uid()), createdAt: t.createdAt || new Date().toISOString() });
+    });
+    (Array.isArray(obj.upcoming) ? obj.upcoming : []).forEach((u, i) => {
+      const r = validateBudget(upToRaw({ ...u, amount: Number.isInteger(u && u.amount) ? u.amount : NaN }));
+      if (Object.keys(r.errors).length) return rejected.push(`Upcoming expense ${i + 1} (“${(u && u.title) || 'untitled'}”): ${Object.values(r.errors)[0]}`);
+      const { type, from, to, ...rest } = r.value;
+      s.upcoming.push({ ...rest, id: String(u.id || uid()), createdAt: u.createdAt || new Date().toISOString() });
+    });
+  } finally { state = prev; }
+  return { state: s, rejected };
+}
+
+/* =========================================================================
+   SECTION E — CALCULATIONS (urgency, budget maths)
+   ========================================================================= */
+function dueInfo(t, today) {
+  if (!t.hasDeadline) return { line: 'No deadline', cls: '', days: null };
+  const n = daysBetween(today, t.date);
+  if (n < 0) return { line: `${plural(-n, 'day')} overdue`, cls: 'over', days: n };
+  if (n === 0) return { line: 'Due today', cls: 'today', days: 0 };
+  if (n === 1) return { line: 'Due tomorrow', cls: 'today', days: 1 };
+  return { line: `${n} days left`, cls: '', days: n };
+}
+/** Higher = more urgent. Overdue always wins; otherwise closeness (up to 14 days) + priority. */
+function urgency(t, today) {
+  const pw = PRIORITY_WEIGHT[t.priority] || 1;
+  if (!t.hasDeadline) return pw * 5;
+  const n = daysBetween(today, t.date);
+  if (n < 0) return 1000 + Math.min(-n, 365) * 2 + pw * 5;
+  return pw * 5 + Math.max(0, 14 - n) * 2;
+}
+function sortByUrgency(list, today) {
+  return list.slice().sort((a, b) =>
+    urgency(b, today) - urgency(a, today)
+    || (a.hasDeadline && b.hasDeadline ? (a.date + (a.time || '99')).localeCompare(b.date + (b.time || '99')) : 0)
+    || a.title.localeCompare(b.title));
+}
+function bucketOf(t, today) {
+  if (t.done) return 'done';
+  if (!t.hasDeadline) return 'nodl';
+  const n = daysBetween(today, t.date);
+  if (n <= 0) return 'today';
+  if (n <= 7) return 'week';
+  return 'later';
+}
+function topReason(t, today) {
+  const d = dueInfo(t, today);
+  if (d.days === null) return `${t.priority} priority with no deadline — good to chip away at`;
+  if (d.days < 0) return `${d.line} — clearing it first will lighten the load`;
+  if (d.days === 0) return t.priority === 'High' ? 'Due today and high priority' : 'Due today';
+  if (d.days === 1) return 'Due tomorrow — a head start today helps';
+  return `${t.priority} priority, ${d.days} days left`;
+}
+/** More than 5 high-priority, not-done items with deadlines inside any 3-day window. */
+function overloadWarning(today) {
+  const dates = state.tasks.filter(t => !t.done && t.hasDeadline && t.priority === 'High')
+    .map(t => (t.date < today ? today : t.date)).sort();
+  for (let i = 0; i < dates.length; i++) {
+    const end = addDays(dates[i], 2);
+    const count = dates.filter(d => d >= dates[i] && d <= end).length;
+    if (count > 5) return { count, start: dates[i], end };
+  }
+  return null;
+}
+
+function computeBudget(today) {
+  const S = state.settings;
+  const acc = { HSBC: { start: S.startHSBC, in: 0, out: 0, tIn: 0, tOut: 0 }, Monzo: { start: S.startMonzo, in: 0, out: 0, tIn: 0, tOut: 0 } };
+  const month = today.slice(0, 7);
+  const weekStart = addDays(today, -weekdayIdx(today));
+  let spentToday = 0, spentWeek = 0, spentMonth = 0;
+  for (const t of state.transactions) {
+    if (t.type === 'in') acc[t.account].in += t.amount;
+    else if (t.type === 'out') {
+      acc[t.account].out += t.amount;
+      if (t.account === 'HSBC' && t.date <= today) {     // spending stats: HSBC = everyday spending
+        if (t.date === today) spentToday += t.amount;
+        if (t.date >= weekStart) spentWeek += t.amount;
+        if (t.date.slice(0, 7) === month) spentMonth += t.amount;
+      }
+    } else if (t.type === 'transfer') {                  // transfers move money; never counted as spending
+      acc[t.from].tOut += t.amount; acc[t.to].tIn += t.amount;
+    }
+  }
+  for (const k of ACCOUNTS) { const a = acc[k]; a.balance = a.start + a.in - a.out + a.tIn - a.tOut; }
+  const upHSBC = state.upcoming.filter(u => u.account === 'HSBC').reduce((s, u) => s + u.amount, 0);
+  const upMonzo = state.upcoming.filter(u => u.account === 'Monzo').reduce((s, u) => s + u.amount, 0);
+  return { acc, total: acc.HSBC.balance + acc.Monzo.balance, spentToday, spentWeek, spentMonth, upHSBC, upMonzo, weekStart };
+}
+function spendingByCategory(range, today) {
+  const month = today.slice(0, 7), sums = {};
+  state.transactions.filter(t => t.type === 'out' && (range === 'all' || t.date.slice(0, 7) === month))
+    .forEach(t => { sums[t.category] = (sums[t.category] || 0) + t.amount; });
+  return Object.entries(sums).sort((a, b) => b[1] - a[1]);
+}
+
+/* =========================================================================
+   SECTION F — ICONS (tiny inline SVGs; no external files)
+   ========================================================================= */
+const ICON = {
+  tick: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  leaf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c8 0 14-6 14-14C11 5 5 10 5 17v2Zm0 0 7-7"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>'
+};
+/** Priority = signal-bar icon + the word (colour is never the only signal). */
+function prioBadge(p) {
+  const n = PRIORITY_WEIGHT[p] || 1;
+  const bar = (i, h) => `<rect class="${i <= n ? 'bar-on' : 'bar-off'}" x="${(i - 1) * 6 + 1}" y="${16 - h}" width="4" height="${h}" rx="1"/>`;
+  return `<span class="prio ${esc(p)}"><svg viewBox="0 0 18 16" aria-hidden="true">${bar(1, 6)}${bar(2, 11)}${bar(3, 16)}</svg>${esc(p)} priority</span>`;
+}
+
+/* =========================================================================
+   SECTION G — NAVIGATION
+   ========================================================================= */
+const PAGES = ['add', 'timetable', 'budget', 'settings'];
+let currentPage = 'add';
+function route() {
+  const p = (location.hash || '#add').slice(1);
+  currentPage = PAGES.includes(p) ? p : 'add';
+  PAGES.forEach(id => { $('#page-' + id).hidden = id !== currentPage; });
+  $$('.nav a').forEach(a => { if (a.dataset.page === currentPage) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  renderPage(currentPage);
+  document.title = { add: 'Add', timetable: 'Timetable', budget: 'Budget', settings: 'Settings' }[currentPage] + ' · My Organiser';
+}
+function go(page) {
+  if (location.hash === '#' + page) route(); else location.hash = page;
+  window.scrollTo(0, 0);
+}
+function renderPage(p) {
+  if (p === 'add') renderAdd();
+  if (p === 'timetable') renderTimetable();
+  if (p === 'budget') renderBudget();
+  if (p === 'settings') renderSettings();
+}
+function renderAll() { renderPage(currentPage); }
+
+/* =========================================================================
+   SECTION H — RENDERING: ADD PAGE (also used for editing)
+   ========================================================================= */
+let editing = null;   // { kind: 'task'|'txn'|'upcoming', id, returnTo }
+let lastToday = todayISO();
+
+function fillCategorySelect(selected) {
+  const sel = $('#f-category');
+  const cats = state.settings.categories.slice();
+  if (selected && !cats.includes(selected)) cats.push(selected);
+  sel.innerHTML = '<option value="">Choose category…</option>' + cats.map(c => `<option${c === selected ? ' selected' : ''}>${esc(c)}</option>`).join('');
+}
+function syncAddVisibility() {
+  const dest = $('#f-dest').value;
+  $('#grp-tt').hidden = dest !== 'timetable';
+  $('#grp-bud').hidden = dest !== 'budget';
+  $('#grp-deadline').hidden = $('#f-hasdl').value !== 'Yes';
+  const type = $('#f-type').value;
+  $('#grp-account').hidden = type === 'transfer';
+  $('#grp-transfer').hidden = type !== 'transfer';
+  $('#grp-cat').hidden = type === 'transfer';
+  $('#grp-due').hidden = type !== 'upcoming';
+  $('#l-bdate').textContent = type === 'upcoming' ? 'Date added' : 'Date';
+  $('#l-account').textContent = type === 'upcoming' ? 'Pay from' : (type === 'in' ? 'Into account' : 'Account');
+  updateDateHint();
+}
+/** Under each date box, repeat the chosen date in UK format (some browsers show US order) plus days left. */
+function updateDateHint() {
+  for (const k of ['date', 'bdate', 'due']) {
+    const v = $('#f-' + k).value, h = $('#h-' + k);
+    if (v && isValidISO(v)) {
+      const n = daysBetween(todayISO(), v);
+      const rel = k === 'bdate' ? (n === 0 ? 'today' : n < 0 ? plural(-n, 'day') + ' ago' : 'in ' + plural(n, 'day')) : dueInfo({ hasDeadline: true, date: v }, todayISO()).line;
+      h.textContent = `${fmtShortDay(v)} · ${rel}`;
+    } else h.textContent = 'DD/MM/YYYY';
+  }
+}
+function resetAddForm(keepDest = true) {
+  const dest = $('#f-dest').value, type = $('#f-type').value;
+  $('#add-form').reset();
+  if (keepDest) { $('#f-dest').value = dest; $('#f-type').value = type; }
+  $('#f-priority').value = 'Medium';
+  $('#f-bdate').value = todayISO();
+  $('#f-to').value = 'Monzo';
+  fillCategorySelect('');
+  clearErrors($('#add-form'));
+  syncAddVisibility();
+}
+function renderAdd() {
+  if (!$('#f-category').options.length) fillCategorySelect('');
+  const isEdit = !!editing;
+  $('#h-add').textContent = isEdit ? 'Edit' : 'Add';
+  $('#add-sub').textContent = isEdit ? 'Change anything below, then save.' : 'Key it in once. It goes where it belongs.';
+  $('#f-submit').textContent = isEdit ? 'Save changes' : 'Add';
+  $('#f-cancel').hidden = !isEdit;
+  $('#f-dest').disabled = isEdit;
+  $('#l-title').textContent = isEdit ? 'What is it?' : 'What do you need to add?';
+  syncAddVisibility();
+}
+function clearErrors(root) {
+  $$('.err', root).forEach(e => e.textContent = '');
+  $$('[aria-invalid]', root).forEach(e => e.removeAttribute('aria-invalid'));
+  const s = $('.err-summary', root); if (s) s.textContent = '';
+}
+function showErrors(errors, prefix = 'f-') {
+  let first = null;
+  for (const [k, msg] of Object.entries(errors)) {
+    const errEl = $('#e-' + k), input = $('#' + prefix + k);
+    if (errEl) errEl.textContent = msg;
+    if (input) { input.setAttribute('aria-invalid', 'true'); if (!first && !input.closest('[hidden]')) first = input; }
+  }
+  return first;
+}
+function readAddForm() {
+  return {
+    dest: $('#f-dest').value,
+    task: { title: $('#f-title').value, hasDeadline: $('#f-hasdl').value, date: $('#f-date').value || ($('#f-date').validity.badInput ? 'bad' : ''),
+            time: $('#f-time').value, priority: $('#f-priority').value, note: $('#f-note').value, done: 'No' },
+    budget: { title: $('#f-title').value, type: $('#f-type').value, account: $('#f-account').value, from: $('#f-from').value, to: $('#f-to').value,
+              amount: $('#f-amount').value, category: $('#f-category').value,
+              date: $('#f-bdate').value || ($('#f-bdate').validity.badInput ? 'bad' : ''),
+              due: $('#f-due').value || ($('#f-due').validity.badInput ? 'bad' : '') }
+  };
+}
+function onAddSubmit(e) {
+  e.preventDefault();
+  const form = $('#add-form');
+  clearErrors(form);
+  $('#add-confirm').innerHTML = '';
+  const f = readAddForm();
+  const isEdit = !!editing;
+  let result, page, label;
+
+  if (f.dest === 'timetable') {
+    result = validateTask(f.task);
+    if (isEdit) result.value.done = (state.tasks.find(t => t.id === editing.id) || {}).done || false;
+  } else {
+    result = validateBudget(f.budget);
+  }
+  if (Object.keys(result.errors).length) {
+    const first = showErrors(result.errors);
+    const n = Object.keys(result.errors).length;
+    $('#err-summary').textContent = n === 1 ? 'One thing needs fixing before this can be saved.' : `${n} things need fixing before this can be saved.`;
+    (first || $('#f-title')).focus();
+    return;
+  }
+
+  // Duplicate check (only for new items)
+  if (!isEdit) {
+    let dup = false;
+    if (f.dest === 'timetable') dup = state.tasks.some(t => !t.done && taskKey(t) === taskKey(result.value));
+    else if (result.kind === 'upcoming') dup = state.upcoming.some(u => upKey(u) === upKey(result.value));
+    else dup = state.transactions.some(t => txnKey(t) === txnKey(result.value));
+    if (dup && !confirm('This looks exactly like something you’ve already added. Add it again anyway?')) return;
+  }
+
+  const now = new Date().toISOString();
+  if (f.dest === 'timetable') {
+    const v = result.value;
+    if (isEdit) {
+      const t = state.tasks.find(x => x.id === editing.id);
+      if (t) Object.assign(t, v, { done: t.done });
+    } else state.tasks.push({ ...v, id: uid(), done: false, doneAt: '', createdAt: now });
+    page = 'timetable'; label = 'Timetable';
+  } else {
+    const v = result.value;
+    const id = isEdit ? editing.id : uid();
+    const prevCreated = isEdit ? ((state.transactions.find(x => x.id === id) || state.upcoming.find(x => x.id === id) || {}).createdAt || now) : now;
+    // On edit, remove from whichever list it was in (type may have changed between transaction and upcoming).
+    if (isEdit) { state.transactions = state.transactions.filter(x => x.id !== id); state.upcoming = state.upcoming.filter(x => x.id !== id); }
+    if (result.kind === 'upcoming') { const { type, from, to, ...rest } = v; state.upcoming.push({ ...rest, id, createdAt: prevCreated }); }
+    else state.transactions.push({ ...v, id, createdAt: prevCreated });
+    page = 'budget'; label = 'Budget';
+  }
+  save();
+
+  if (isEdit) {
+    const back = editing.returnTo;
+    editing = null;
+    resetAddForm();
+    toast('Changes saved.');
+    go(back);
+    return;
+  }
+  const what = f.dest === 'timetable' ? 'Timetable' : (result.kind === 'upcoming' ? 'Budget (Upcoming expenses)' : 'Budget');
+  $('#add-confirm').innerHTML = `${ICON.tick}<div><strong>Added “${esc(result.value.title)}”.</strong><br>It went to your ${esc(what)}. <a href="#${page}">Go to ${label} →</a></div>`;
+  resetAddForm(true);
+  $('#f-title').focus();
+}
+function startEdit(kind, id, returnTo) {
+  let raw;
+  if (kind === 'task') { const t = state.tasks.find(x => x.id === id); if (!t) return; raw = taskToRaw(t); }
+  if (kind === 'txn') { const t = state.transactions.find(x => x.id === id); if (!t) return; raw = txnToRaw(t); }
+  if (kind === 'upcoming') { const u = state.upcoming.find(x => x.id === id); if (!u) return; raw = upToRaw(u); }
+  editing = { kind, id, returnTo };
+  $('#add-form').reset(); clearErrors($('#add-form')); $('#add-confirm').innerHTML = '';
+  $('#f-title').value = raw.title;
+  if (kind === 'task') {
+    $('#f-dest').value = 'timetable';
+    $('#f-hasdl').value = raw.hasDeadline; $('#f-date').value = raw.date || ''; $('#f-time').value = raw.time || '';
+    $('#f-priority').value = raw.priority; $('#f-note').value = raw.note || '';
+  } else {
+    $('#f-dest').value = 'budget';
+    $('#f-type').value = raw.type; $('#f-account').value = raw.account || 'HSBC';
+    $('#f-from').value = raw.from || 'HSBC'; $('#f-to').value = raw.to || 'Monzo';
+    $('#f-amount').value = raw.amount; fillCategorySelect(raw.category || '');
+    $('#f-bdate').value = raw.date; $('#f-due').value = raw.due || '';
+  }
+  go('add');
+  setTimeout(() => $('#f-title').focus(), 0);
+}
+
+/* =========================================================================
+   SECTION I — RENDERING: TIMETABLE
+   ========================================================================= */
+let ttTab = 'today';
+const TABS = [['today', 'Today'], ['week', 'This week'], ['later', 'Later'], ['nodl', 'No deadline'], ['done', 'Done']];
+const TAB_EMPTY = {
+  today: 'Nothing due today. Breathe out.',
+  week: 'Nothing due in the next 7 days.',
+  later: 'Nothing further ahead yet.',
+  nodl: 'No open-ended items.',
+  done: 'Ticked-off items will appear here. Each one counts.'
+};
+function todayMessage(today) {
+  const open = state.tasks.filter(t => !t.done);
+  const over = open.filter(t => t.hasDeadline && t.date < today).length;
+  const dueToday = open.filter(t => t.hasDeadline && t.date === today).length;
+  const doneToday = state.tasks.filter(t => t.done && (t.doneAt || '').slice(0, 10) === today).length;
+  if (!state.tasks.length) return 'A clean slate. Add one thing when you’re ready — that’s enough for now.';
+  if (!open.length) return 'Everything is ticked off. Enjoy the quiet.';
+  if (doneToday >= 3) return `${doneToday} things done today. That’s real progress.`;
+  if (over) return `${plural(over, 'thing')} ran over — that happens. Pick one and give it 20 minutes.`;
+  if (dueToday) return `${plural(dueToday, 'thing')} due today. One at a time is plenty.`;
+  const calm = ['Nothing due today. A good day to get ahead — or to rest.', 'No deadlines today. Small steps still count.', 'A lighter day. Pick one thing from your Top 3 and start there.'];
+  return calm[dayNum(today) % calm.length];
+}
+function taskItem(t, today) {
+  const d = dueInfo(t, today);
+  const when = t.hasDeadline ? `${fmtShortDay(t.date)}${t.time ? ' · ' + t.time : ''}` : '';
+  return `<li class="item${t.done ? ' is-done' : ''}">
+    <button class="tick" type="button" data-action="toggle-done" data-id="${t.id}" data-fkey="tick-${t.id}" aria-pressed="${t.done}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}">${ICON.tick}</button>
+    <div>
+      <div class="title">${esc(t.title)}</div>
+      <div class="due ${t.done ? '' : d.cls}">${t.done ? 'Done' + (t.doneAt ? ' ' + fmtDate(t.doneAt.slice(0, 10)) : '') : d.line}</div>
+      <div class="meta">${prioBadge(t.priority)}${when ? `<span>${when}</span>` : ''}</div>
+      ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
+    </div>
+    <div class="item-actions">
+      <details class="more"><summary data-fkey="more-${t.id}">More ${ICON.chev}<span class="vh"> options for ${esc(t.title)}</span></summary>
+        <div class="btn-row">
+          <button class="btn btn-sm" type="button" data-action="edit-task" data-id="${t.id}">Edit</button>
+          ${t.hasDeadline ? `<button class="btn btn-sm" type="button" data-action="ics-one" data-id="${t.id}">${ICON.cal}Add to Apple Calendar</button>` : ''}
+          <button class="btn btn-sm btn-danger" type="button" data-action="delete-task" data-id="${t.id}">Delete</button>
+        </div>
+      </details>
+    </div>
+  </li>`;
+}
+function renderTimetable() {
+  const today = todayISO();
+  const open = state.tasks.filter(t => !t.done);
+  const counts = { today: 0, week: 0, later: 0, nodl: 0, done: 0 };
+  state.tasks.forEach(t => counts[bucketOf(t, today)]++);
+  const top = sortByUrgency(open, today).slice(0, 3);
+  const warn = overloadWarning(today);
+  const datedOpen = open.filter(t => t.hasDeadline).length;
+  let list = state.tasks.filter(t => bucketOf(t, today) === ttTab);
+  list = ttTab === 'done' ? list.sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || '')) : sortByUrgency(list, today);
+
+  $('#tt-content').innerHTML = `
+    <div class="card today-msg">
+      <div class="date">${fmtLong(today)}</div>
+      <p style="margin:4px 0 0">${esc(todayMessage(today))}</p>
+    </div>
+    ${warn ? `<div class="card attn" role="note"><div class="callout" style="color:var(--attn)">${ICON.warn}<div><strong>That’s a lot at once.</strong> ${warn.count} high-priority items fall between ${fmtDate(warn.start)} and ${fmtDate(warn.end)}. Could any drop to Medium, or is an extension worth asking about?</div></div></div>` : ''}
+    <section class="card soft top3" aria-labelledby="h-top3">
+      <h2 id="h-top3">Top 3 for today</h2>
+      ${top.length ? `<ol>${top.map(t => `<li><div><div class="t">${esc(t.title)}</div><div class="why">${esc(topReason(t, today))}</div></div></li>`).join('')}</ol>`
+                   : `<p class="sub" style="margin:0">Nothing to do yet. <a href="#add">Add something</a> and it will show up here.</p>`}
+    </section>
+    <div class="tabs" role="tablist" aria-label="Timetable views">
+      ${TABS.map(([k, l]) => `<button class="tab" role="tab" type="button" id="tab-${k}" aria-controls="tt-panel" aria-selected="${ttTab === k}" tabindex="${ttTab === k ? 0 : -1}" data-action="tt-tab" data-tab="${k}" data-fkey="tab-${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}
+    </div>
+    <div id="tt-panel" role="tabpanel" aria-labelledby="tab-${ttTab}">
+      ${ttTab === 'week' ? '<p class="sub">Due in the next 7 days.</p>' : ''}
+      ${list.length ? `<ul class="list">${list.map(t => taskItem(t, today)).join('')}</ul>`
+                    : `<div class="empty">${ICON.leaf}${TAB_EMPTY[ttTab]}</div>`}
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>${ICON.cal.replace('<svg', '<svg style="width:22px;height:22px"')} Apple Calendar</h2>
+      <p class="callout">${ICON.info}<span>This is a <strong>one-time export</strong>, not a live sync. If you change a deadline here later, export it again (Apple Calendar will update the same event rather than adding a copy).</span></p>
+      <button class="btn btn-primary" type="button" data-action="ics-all" ${datedOpen ? '' : 'disabled'}>Add all to Apple Calendar${datedOpen ? ` (${datedOpen})` : ''}</button>
+      ${datedOpen ? '' : '<p class="hint">Only items with a deadline can go into a calendar.</p>'}
+    </div>`;
+}
+
+/* =========================================================================
+   SECTION J — RENDERING: BUDGET
+   ========================================================================= */
+let txFilter = 'all', txShow = 20, chartRange = 'month';
+function kv(label, val, strong) { return `<div class="kv${strong ? ' strong' : ''}"><dt>${label}</dt><dd>${val}</dd></div>`; }
+function bar(value, max) {
+  const pct = max > 0 ? Math.min(100, Math.round(value / max * 100)) : 0;
+  return `<div class="progress${max > 0 && value > max ? ' over' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>`;
+}
+function categoryChart(rows) {
+  if (!rows.length) return `<p class="sub">No spending recorded ${chartRange === 'month' ? 'this month' : 'yet'}.</p>`;
+  const W = 300, rowH = 42, labelW = 80, max = rows[0][1];
+  const valW = Math.max(64, Math.max(...rows.map(r => money(r[1]).length)) * 9.5), barW = W - labelW - valW - 8;
+  const H = rows.length * rowH;
+  const parts = rows.map(([cat, v], i) => {
+    const y = i * rowH, w = Math.max(3, Math.round(v / max * barW));
+    const label = cat.length > 9 ? cat.slice(0, 8) + '…' : cat;
+    return `<g><text x="0" y="${y + 25}">${esc(label)}</text>
+      <rect class="bg" x="${labelW}" y="${y + 10}" width="${barW}" height="20" rx="6"/>
+      <rect class="fg" x="${labelW}" y="${y + 10}" width="${w}" height="20" rx="6"/>
+      <text class="v" x="${W}" y="${y + 25}" text-anchor="end">${esc(money(v))}</text></g>`;
+  }).join('');
+  const desc = rows.map(([c, v]) => `${c} ${money(v)}`).join(', ');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending by category: ${esc(desc)}">${parts}</svg>`;
+}
+function txRow(t) {
+  let amt, cls = '', detail;
+  if (t.type === 'out') { amt = '−' + gbp.format(t.amount / 100); detail = `${esc(t.account)} · ${esc(t.category)}`; }
+  else if (t.type === 'in') { amt = '+' + gbp.format(t.amount / 100); cls = 'in'; detail = `${esc(t.account)} · ${esc(t.category)}`; }
+  else { amt = '⇄ ' + gbp.format(t.amount / 100); detail = `Transfer ${esc(t.from)} → ${esc(t.to)}`; }
+  return `<li class="tx"><div class="title" style="font-weight:600;overflow-wrap:anywhere">${esc(t.title)}</div>
+    <div class="amt ${cls}"><span class="vh">${TYPE_LABEL[t.type]}: </span>${amt}</div>
+    <div class="meta"><span>${fmtDate(t.date)}</span><span>${detail}</span></div>
+    <details class="more"><summary data-fkey="more-${t.id}">More ${ICON.chev}<span class="vh"> options for ${esc(t.title)}</span></summary>
+      <div class="btn-row"><button class="btn btn-sm" type="button" data-action="edit-txn" data-id="${t.id}">Edit</button>
+      <button class="btn btn-sm btn-danger" type="button" data-action="delete-txn" data-id="${t.id}">Delete</button></div></details></li>`;
+}
+function renderBudget() {
+  const today = todayISO(), S = state.settings, B = computeBudget(today);
+  const acctCard = k => {
+    const a = B.acc[k];
+    return `<section class="card" aria-labelledby="h-acc-${k}">
+      <h2 id="h-acc-${k}">${ACCOUNT_LABEL[k]}</h2>
+      <div class="balance ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</div>
+      <p class="sub" style="margin:0 0 8px">Current balance</p>
+      <dl style="margin:0">
+        ${kv(`Starting balance <a href="#settings" style="font-size:1rem">edit</a>`, money(a.start))}
+        ${kv('Money in', signed('+', a.in))}
+        ${kv('Money out', signed('−', a.out))}
+        ${kv('Transfers in', signed('+', a.tIn))}
+        ${kv('Transfers out', signed('−', a.tOut))}
+        ${kv('Current balance', money(a.balance), true)}
+      </dl>
+    </section>`;
+  };
+  const budget = S.monthlyBudget, left = budget - B.spentMonth;
+  const monzo = B.acc.Monzo.balance, goal = S.savingsGoal;
+  const ups = state.upcoming.slice().sort((a, b) => a.due.localeCompare(b.due) || a.title.localeCompare(b.title));
+  const txs = state.transactions.filter(t => txFilter === 'all' || t.account === txFilter || t.from === txFilter || t.to === txFilter)
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const afterUp = B.acc.HSBC.balance - B.upHSBC;
+
+  $('#bud-content').innerHTML = `
+    <section class="card soft" aria-labelledby="h-total">
+      <h2 id="h-total" class="sub" style="font-weight:600;color:var(--muted)">Total across both accounts</h2>
+      <div class="total ${B.total < 0 ? 'neg' : ''}">${money(B.total)}</div>
+    </section>
+
+    <div class="accounts">${acctCard('HSBC')}${acctCard('Monzo')}</div>
+
+    <section class="card" aria-labelledby="h-month">
+      <h2 id="h-month">HSBC spending this month</h2>
+      ${budget > 0 ? `<div class="spread"><span><strong>${money(B.spentMonth)}</strong> of ${money(budget)}</span>
+        <span class="${left < 0 ? 'neg' : 'sub'}">${left >= 0 ? money(left) + ' left' : money(-left) + ' over'}</span></div>
+        ${bar(B.spentMonth, budget)}`
+        : `<p class="sub">No monthly budget yet. <a href="#settings">Set one in Settings</a> to see a progress bar.</p>`}
+      <div class="stats">
+        <div class="stat"><span class="v">${money(B.spentToday)}</span><span class="l">Today</span></div>
+        <div class="stat"><span class="v">${money(B.spentWeek)}</span><span class="l">This week</span></div>
+        <div class="stat"><span class="v">${money(B.spentMonth)}</span><span class="l">This month</span></div>
+      </div>
+      <p class="hint">Weeks start on Monday. Transfers are never counted as spending.</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-goal">
+      <h2 id="h-goal">Monzo savings goal</h2>
+      ${goal > 0 ? `<div class="spread"><span><strong>${money(Math.max(0, monzo))}</strong> of ${money(goal)}</span>
+        <span class="sub">${monzo >= goal ? 'Goal reached ✓' : money(goal - monzo) + ' to go'}</span></div>${bar(Math.max(0, monzo), goal)}`
+        : `<p class="sub" style="margin:0">No goal set — that’s fine. <a href="#settings">Add one in Settings</a> if it would help.</p>`}
+    </section>
+
+    <section class="card" aria-labelledby="h-up">
+      <h2 id="h-up">Upcoming expenses</h2>
+      ${ups.length ? `<ul class="list">${ups.map(u => {
+        const d = dueInfo({ hasDeadline: true, date: u.due }, today);
+        return `<li class="tx"><div style="font-weight:600;overflow-wrap:anywhere">${esc(u.title)}</div><div class="amt">${money(u.amount)}</div>
+          <div class="meta"><span class="due ${d.cls}">${d.line}</span><span>Due ${fmtDate(u.due)}</span><span>${esc(u.account)} · ${esc(u.category)}</span></div>
+          <details class="more"><summary data-fkey="more-${u.id}">More ${ICON.chev}<span class="vh"> options for ${esc(u.title)}</span></summary><div class="btn-row">
+            <button class="btn btn-sm btn-primary" type="button" data-action="pay-up" data-id="${u.id}">Mark as paid</button>
+            <button class="btn btn-sm" type="button" data-action="edit-up" data-id="${u.id}">Edit</button>
+            <button class="btn btn-sm btn-danger" type="button" data-action="delete-up" data-id="${u.id}">Delete</button></div></details></li>`;
+      }).join('')}</ul>` : '<p class="sub">Nothing coming up. Add bills or fees as “Upcoming expense” so they don’t surprise you.</p>'}
+      <dl style="margin:12px 0 0">
+        ${kv('HSBC balance now', money(B.acc.HSBC.balance))}
+        ${kv('Upcoming from HSBC', signed('−', B.upHSBC))}
+        ${kv('HSBC balance after upcoming expenses', `<span class="${afterUp < 0 ? 'neg' : ''}">${money(afterUp)}</span>`, true)}
+      </dl>
+      ${B.upMonzo ? `<p class="hint">Plus ${money(B.upMonzo)} due from Monzo.</p>` : ''}
+      ${ups.length ? '<p class="hint">“More → Mark as paid” turns it into a Money out entry dated today.</p>' : ''}
+    </section>
+
+    <section class="card chart" aria-labelledby="h-chart">
+      <div class="spread" style="flex-wrap:wrap;margin-bottom:10px"><h2 id="h-chart" style="margin:0">Spending by category</h2>
+        <div class="seg" role="group" aria-label="Chart period">
+          <button type="button" data-action="chart-range" data-range="month" aria-pressed="${chartRange === 'month'}">This month</button>
+          <button type="button" data-action="chart-range" data-range="all" aria-pressed="${chartRange === 'all'}">All time</button>
+        </div></div>
+      ${categoryChart(spendingByCategory(chartRange, today))}
+      <p class="hint">Both accounts, money out only.</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-tx">
+      <div class="spread" style="flex-wrap:wrap"><h2 id="h-tx" style="margin:0">Recent transactions</h2>
+        <div style="min-width:150px"><label for="tx-filter" class="vh">Show account</label>
+          <select id="tx-filter" data-fkey="tx-filter">
+            <option value="all"${txFilter === 'all' ? ' selected' : ''}>Both accounts</option>
+            <option value="HSBC"${txFilter === 'HSBC' ? ' selected' : ''}>HSBC only</option>
+            <option value="Monzo"${txFilter === 'Monzo' ? ' selected' : ''}>Monzo only</option>
+          </select></div></div>
+      ${txs.length ? `<ul class="list" style="margin-top:8px">${txs.slice(0, txShow).map(txRow).join('')}</ul>
+        ${txs.length > txShow ? `<button class="btn btn-quiet" type="button" data-action="tx-more">Show more (${txs.length - txShow} older)</button>` : ''}`
+        : `<div class="empty">${ICON.leaf}No transactions yet. <a href="#add">Add one</a>.</div>`}
+    </section>`;
+}
+
+/* =========================================================================
+   SECTION K — RENDERING: SETTINGS
+   ========================================================================= */
+function renderSettings() {
+  const S = state.settings;
+  const active = document.activeElement;
+  if (!$('#money-form').contains(active)) {
+    $('#s-starthsbc').value = penceToStr(S.startHSBC);
+    $('#s-startmonzo').value = penceToStr(S.startMonzo);
+    $('#s-budget').value = penceToStr(S.monthlyBudget);
+    $('#s-goal').value = S.savingsGoal ? penceToStr(S.savingsGoal) : '';
+  }
+  $('#cat-list').innerHTML = S.categories.map((c, i) =>
+    `<li class="chip">${esc(c)}<button type="button" data-action="del-cat" data-i="${i}" data-fkey="cat-${i}" aria-label="Remove category ${esc(c)}">${ICON.x}</button></li>`).join('');
+  $('#s-theme').value = S.theme;
+  const today = todayISO();
+  if (S.lastBackupAt) {
+    const n = daysBetween(S.lastBackupAt, today);
+    $('#backup-when').textContent = `Last backup: ${fmtDate(S.lastBackupAt)} (${n === 0 ? 'today' : plural(n, 'day') + ' ago'}).` + (n > 7 ? ' Time for a fresh one.' : '');
+  } else $('#backup-when').textContent = 'No backup yet. A backup is one small file you can keep in iCloud Drive, OneDrive or email to yourself.';
+  $('#storage-status').textContent = store.ok
+    ? `Saving automatically on this device. ${state.tasks.length} timetable items, ${state.transactions.length} transactions, ${state.upcoming.length} upcoming expenses.`
+    : 'Your browser is blocking storage, so data is only kept until this tab closes. Export a backup before leaving.';
+}
+function renderStorageBanner() {
+  const b = $('#storage-banner');
+  if (!store.ok) { b.hidden = false; b.innerHTML = `${ICON.warn}<span>This browser isn’t letting the app save (private mode or blocked storage). Your data will be lost when you close it — use <a href="#settings">Export backup</a>.</span>`; }
+  else if (store.loadProblems) {
+    b.hidden = false;
+    b.innerHTML = `${ICON.warn}<span>${store.loadProblems === -1 ? 'Saved data couldn’t be read, so the app started fresh.' : plural(store.loadProblems, 'saved item') + ' couldn’t be read and were skipped.'} If you have a backup, import it in <a href="#settings">Settings</a>. <button class="btn btn-sm btn-quiet" type="button" data-action="dismiss-banner">Dismiss</button></span>`;
+  } else b.hidden = true;
+}
+
+/* =========================================================================
+   SECTION L — EXPORT: APPLE CALENDAR (.ics)
+   ========================================================================= */
+function icsEscape(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+/** Fold lines to 75 octets as the iCalendar spec requires (UTF-8 safe). */
+function icsFold(line) {
+  const enc = new TextEncoder(); const out = []; let cur = '', curLen = 0;
+  for (const ch of line) {
+    const l = enc.encode(ch).length;
+    if (curLen + l > (out.length ? 74 : 75)) { out.push(cur); cur = ''; curLen = 0; }
+    cur += ch; curLen += l;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+}
+function buildICS(tasks) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const needsTZ = tasks.some(t => t.time);
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//My Organiser//EN-GB//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:My Organiser'];
+  if (needsTZ) L.push('BEGIN:VTIMEZONE', 'TZID:Europe/London',
+    'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0000', 'TZOFFSETTO:+0100', 'TZNAME:BST', 'DTSTART:19700329T010000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+    'BEGIN:STANDARD', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0000', 'TZNAME:GMT', 'DTSTART:19701025T020000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD',
+    'END:VTIMEZONE');
+  for (const t of tasks) {
+    const d = t.date.replace(/-/g, '');
+    L.push('BEGIN:VEVENT', `UID:${t.id}@my-organiser.local`, `DTSTAMP:${stamp}`);
+    if (t.time) {
+      const [h, m] = t.time.split(':').map(Number);
+      const endMin = h * 60 + m + 60;                       // 1-hour event
+      let endDate = t.date, eh = Math.floor(endMin / 60), em = endMin % 60;
+      if (eh >= 24) { eh -= 24; endDate = addDays(t.date, 1); }
+      const p2 = n => String(n).padStart(2, '0');
+      L.push(`DTSTART;TZID=Europe/London:${d}T${p2(h)}${p2(m)}00`, `DTEND;TZID=Europe/London:${endDate.replace(/-/g, '')}T${p2(eh)}${p2(em)}00`);
+    } else {
+      L.push(`DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${addDays(t.date, 1).replace(/-/g, '')}`, 'TRANSP:TRANSPARENT');
+    }
+    L.push(`SUMMARY:${icsEscape(t.title)}`, `DESCRIPTION:${icsEscape(`Priority: ${t.priority}${t.note ? '\n' + t.note : ''}`)}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(t.title)}`, `TRIGGER:${t.time ? '-PT1H' : '-PT15H'}`, 'END:VALARM',
+      'END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  return L.map(icsFold).join('\r\n') + '\r\n';
+}
+function exportICS(tasks, name) {
+  if (!tasks.length) { toast('No items with a deadline to export.'); return; }
+  downloadFile(name, new Blob([buildICS(tasks)], { type: 'text/calendar;charset=utf-8' }));
+}
+
+/* =========================================================================
+   SECTION M — EXPORT/IMPORT: EXCEL (.xlsx written by hand with JSZip)
+   A real .xlsx is a zip of XML files. Building it directly keeps the app small
+   and lets us add proper Excel drop-down lists (data validation).
+   ========================================================================= */
+const xmlEsc = s => String(s ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const colL = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+const isoToSerial = iso => dayNum(iso) - dayNum('1899-12-30');
+const serialToISO = n => addDays('1899-12-30', Math.floor(n));
+// Cell builders. Style ids: 0 normal, 1 header, 2 date, 3 money, 4 wrap text
+const cS = v => ({ t: 's', v }), cD = iso => iso ? { t: 'n', v: isoToSerial(iso), s: 2 } : null, cM = p => ({ t: 'n', v: p / 100, s: 3 });
+
+function sheetXML({ header, rows, widths, validations }) {
+  const cell = (c, ref) => {
+    if (!c || c.v === '' || c.v === null || c.v === undefined) return '';
+    if (c.t === 'n') return `<c r="${ref}"${c.s ? ` s="${c.s}"` : ''}><v>${c.v}</v></c>`;
+    return `<c r="${ref}" t="inlineStr"${c.s ? ` s="${c.s}"` : ''}><is><t xml:space="preserve">${xmlEsc(c.v)}</t></is></c>`;
+  };
+  const rowsXml = [header.map(h => ({ t: 's', v: h, s: 1 })), ...rows].map((r, ri) =>
+    `<row r="${ri + 1}">${r.map((c, ci) => cell(c, colL(ci) + (ri + 1))).join('')}</row>`).join('');
+  const dv = validations.map(v => {
+    const attrs = v.type === 'list'
+      ? `type="list" allowBlank="1" showErrorMessage="1" errorTitle="Choose from the list" error="${xmlEsc(v.error)}"`
+      : `type="${v.type}" operator="${v.op}" allowBlank="1" showErrorMessage="1" errorTitle="Check this value" error="${xmlEsc(v.error)}"`;
+    return `<dataValidation ${attrs} sqref="${v.col}2:${v.col}1000"><formula1>${xmlEsc(v.f1)}</formula1>${v.f2 !== undefined ? `<formula2>${v.f2}</formula2>` : ''}</dataValidation>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/>
+<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>
+<sheetData>${rowsXml}</sheetData>
+${dv ? `<dataValidations count="${validations.length}">${dv}</dataValidations>` : ''}
+</worksheet>`;
+}
+const listV = (col, items, error) => ({ type: 'list', col, f1: `"${items.join(',')}"`, error });
+const dateV = col => ({ type: 'date', op: 'between', col, f1: String(isoToSerial('2000-01-01')), f2: String(isoToSerial('2100-12-31')), error: 'Enter a date as DD/MM/YYYY.' });
+const moneyV = col => ({ type: 'decimal', op: 'between', col, f1: '0.01', f2: '1000000', error: 'Enter an amount in £ greater than 0, e.g. 12.50.' });
+
+const SHEETS = { tt: 'Timetable', tx: 'Budget transactions', up: 'Upcoming expenses', set: 'Settings' };
+const SETTING_ROWS = [['HSBC starting balance', 'startHSBC'], ['Monzo starting balance', 'startMonzo'], ['HSBC monthly budget', 'monthlyBudget'], ['Monzo savings goal', 'savingsGoal']];
+
+async function buildXlsx() {
+  const S = state.settings, cats = S.categories;
+  const catRef = `Settings!$D$2:$D$${cats.length + 1}`;
+  const catV = col => ({ type: 'list', col, f1: catRef, error: 'Choose one of your categories (edit the list in the app’s Settings).' });
+  const sheets = [
+    { name: SHEETS.tt, header: ['Title', 'Has deadline', 'Deadline', 'Time', 'Priority', 'Note', 'Done'], widths: [40, 14, 14, 10, 12, 40, 10],
+      rows: sortByUrgency(state.tasks, todayISO()).map(t => [cS(t.title), cS(t.hasDeadline ? 'Yes' : 'No'), t.hasDeadline ? cD(t.date) : null, cS(t.time), cS(t.priority), cS(t.note), cS(t.done ? 'Yes' : 'No')]),
+      validations: [listV('B', ['Yes', 'No'], 'Choose Yes or No.'), dateV('C'), listV('E', PRIORITIES, 'Choose High, Medium or Low.'), listV('G', ['Yes', 'No'], 'Choose Yes or No.')] },
+    { name: SHEETS.tx, header: ['Date', 'Description', 'Type', 'Account', 'From', 'To', 'Amount (£)', 'Category'], widths: [13, 36, 13, 11, 11, 11, 13, 14],
+      rows: state.transactions.slice().sort((a, b) => b.date.localeCompare(a.date)).map(t => [cD(t.date), cS(t.title), cS(TYPE_LABEL[t.type]), cS(t.account), cS(t.from), cS(t.to), cM(t.amount), cS(t.category)]),
+      validations: [dateV('A'), listV('C', ['Money out', 'Money in', 'Transfer'], 'Choose Money out, Money in or Transfer.'), listV('D', ACCOUNTS, 'Choose HSBC or Monzo.'),
+        listV('E', ACCOUNTS, 'Choose HSBC or Monzo.'), listV('F', ACCOUNTS, 'Choose HSBC or Monzo.'), moneyV('G'), catV('H')] },
+    { name: SHEETS.up, header: ['Description', 'Account', 'Amount (£)', 'Category', 'Date added', 'Due date'], widths: [36, 11, 13, 14, 13, 13],
+      rows: state.upcoming.slice().sort((a, b) => a.due.localeCompare(b.due)).map(u => [cS(u.title), cS(u.account), cM(u.amount), cS(u.category), cD(u.date), cD(u.due)]),
+      validations: [listV('B', ACCOUNTS, 'Choose HSBC or Monzo.'), moneyV('C'), catV('D'), dateV('E'), dateV('F')] },
+    { name: SHEETS.set, header: ['Setting', 'Value (£)', '', 'Categories'], widths: [26, 14, 4, 18],
+      rows: (() => {
+        const n = Math.max(SETTING_ROWS.length + 2, cats.length);
+        const r = [];
+        for (let i = 0; i < n; i++) {
+          const row = [null, null, null, cats[i] ? cS(cats[i]) : null];
+          if (i < SETTING_ROWS.length) { row[0] = cS(SETTING_ROWS[i][0]); row[1] = cM(S[SETTING_ROWS[i][1]]); }
+          if (i === SETTING_ROWS.length + 1) { row[0] = cS('Exported on'); row[1] = cS(fmtDate(todayISO())); }
+          r.push(row);
+        }
+        return r;
+      })(),
+      validations: [] }
+  ];
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`);
+  const nowZ = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  zip.file('docProps/core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<dc:title>My Organiser export</dc:title><dc:creator>My Organiser</dc:creator>
+<dcterms:created xsi:type="dcterms:W3CDTF">${nowZ}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${nowZ}</dcterms:modified></cp:coreProperties>`);
+  zip.file('docProps/app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>My Organiser</Application></Properties>`);
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<bookViews><workbookView/></bookViews>
+<sheets>${sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>
+</workbook>`);
+  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}
+<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+  zip.file('xl/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="&quot;£&quot;#,##0.00"/></numFmts>
+<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2E7D6B"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="5">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`);
+  sheets.forEach((s, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, sheetXML(s)));
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
+}
+
+/* ---- Reading .xlsx: returns { sheetName: [ [cell, cell...], ... ] } ---- */
+async function readXlsx(buf) {
+  const zip = await JSZip.loadAsync(buf);
+  const parse = async path => { const f = zip.file(path); return f ? new DOMParser().parseFromString(await f.async('string'), 'application/xml') : null; };
+  const tags = (doc, name) => Array.from(doc.getElementsByTagNameNS('*', name));
+  const wb = await parse('xl/workbook.xml');
+  if (!wb) throw new Error('This file isn’t a valid Excel workbook.');
+  const rels = await parse('xl/_rels/workbook.xml.rels');
+  const relMap = {};
+  if (rels) tags(rels, 'Relationship').forEach(r => { relMap[r.getAttribute('Id')] = r.getAttribute('Target'); });
+  const sst = await parse('xl/sharedStrings.xml');
+  const shared = sst ? tags(sst, 'si').map(si => tags(si, 't').map(t => t.textContent).join('')) : [];
+  const out = {};
+  for (const sh of tags(wb, 'sheet')) {
+    const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+    let target = relMap[rid]; if (!target) continue;
+    target = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
+    const doc = await parse(target); if (!doc) continue;
+    const rows = [];
+    tags(doc, 'row').forEach((row, idx) => {
+      const rNum = +row.getAttribute('r') || idx + 1;
+      const arr = [];
+      tags(row, 'c').forEach((c, ci) => {
+        const ref = c.getAttribute('r');
+        const col = ref ? ref.replace(/\d+/g, '').split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : ci;
+        const t = c.getAttribute('t'), vEl = tags(c, 'v')[0];
+        let v = '';
+        if (t === 's') v = shared[+vEl?.textContent] ?? '';
+        else if (t === 'inlineStr') v = tags(c, 't').map(x => x.textContent).join('');
+        else if (t === 'str' || t === 'e') v = vEl ? vEl.textContent : '';
+        else if (t === 'b') v = vEl?.textContent === '1';
+        else if (vEl) v = Number(vEl.textContent);
+        arr[col] = v;
+      });
+      rows[rNum - 1] = arr;
+    });
+    out[sh.getAttribute('name')] = Array.from(rows, r => r || []);
+  }
+  return out;
+}
+
+/* ---- Reading CSV (RFC 4180: quotes, commas and line breaks inside quotes) ---- */
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += ch;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+/* ---- Turning sheet rows into validated items ---- */
+const normHeader = h => String(h ?? '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z]/g, '');
+const cellDate = v => typeof v === 'number' ? (v > 0 && v < 80000 ? serialToISO(v) : 'bad') : String(v ?? '').trim();
+const cellTime = v => { if (typeof v === 'number') { const mins = Math.round((v % 1) * 1440); return `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`; } return String(v ?? '').trim(); };
+const isBlankRow = r => !r || r.every(c => c === '' || c === null || c === undefined || (typeof c === 'string' && !c.trim()));
+const FIELD_NAMES = { title: 'Title/Description', hasdl: 'Has deadline', date: 'Deadline', time: 'Time', priority: 'Priority', note: 'Note', done: 'Done',
+  type: 'Type', account: 'Account', from: 'From', to: 'To', amount: 'Amount', category: 'Category', bdate: 'Date', due: 'Due date' };
+
+function detectKind(headers) {
+  const h = headers.map(normHeader);
+  if (h.includes('priority')) return 'tt';
+  if (h.includes('setting') || (h.includes('categories') && !h.includes('type'))) return 'set';
+  if (h.includes('duedate') && !h.includes('type')) return 'up';
+  if (h.includes('type')) return 'tx';
+  return null;
+}
+/** Converts rows of one sheet into items; collects rejects with row numbers. */
+function rowsToItems(kind, rows, sheetName, report) {
+  const items = [];
+  if (!rows.length || isBlankRow(rows[0])) { report.rejected.push(`${sheetName}: the first row must be the column headings.`); return items; }
+  const idx = {}; rows[0].forEach((h, i) => { const k = normHeader(h); if (k && idx[k] === undefined) idx[k] = i; });
+  const need = { tt: ['title', 'priority'], tx: ['date', 'description', 'type', 'amount'], up: ['description', 'account', 'amount', 'duedate'], set: [] }[kind];
+  const missing = need.filter(k => idx[k] === undefined && !(k === 'description' && idx.title !== undefined) && !(k === 'title' && idx.description !== undefined));
+  if (missing.length) { report.rejected.push(`${sheetName}: missing column(s) ${missing.join(', ')} — the whole sheet was skipped.`); return items; }
+  const get = (r, ...keys) => { for (const k of keys) if (idx[k] !== undefined) return r[idx[k]]; return ''; };
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i]; if (isBlankRow(r)) continue;
+    const rowNo = i + 1; let res;
+    if (kind === 'tt') {
+      const dateCell = get(r, 'deadline', 'date');
+      let hd = get(r, 'hasdeadline');
+      if (hd === '' || hd === undefined) hd = (dateCell !== '' && dateCell !== undefined) ? 'Yes' : 'No';
+      res = validateTask({ title: get(r, 'title', 'description'), hasDeadline: hd, date: cellDate(dateCell), time: cellTime(get(r, 'time')),
+        priority: get(r, 'priority'), note: get(r, 'note', 'notes'), done: get(r, 'done') });
+      res.kind = 'task';
+    } else if (kind === 'tx') {
+      res = validateBudget({ title: get(r, 'description', 'title'), type: get(r, 'type'), account: get(r, 'account'), from: get(r, 'from'), to: get(r, 'to'),
+        amount: get(r, 'amount'), category: get(r, 'category'), date: cellDate(get(r, 'date')) });
+      if (res.kind === 'upcoming' && !res.errors.type) res.errors.type = 'Upcoming expenses belong on the “Upcoming expenses” sheet.';
+    } else if (kind === 'up') {
+      res = validateBudget({ title: get(r, 'description', 'title'), type: 'upcoming', account: get(r, 'account'), amount: get(r, 'amount'),
+        category: get(r, 'category'), date: cellDate(get(r, 'dateadded', 'date')) || todayISO(), due: cellDate(get(r, 'duedate')) });
+    }
+    const errs = Object.entries(res.errors);
+    if (errs.length) report.rejected.push(`${sheetName}, row ${rowNo}: ` + errs.map(([k, m]) => `${FIELD_NAMES[k] || k} — ${m}`).join(' '));
+    else items.push({ ...res, rowNo, sheetName });
+  }
+  return items;
+}
+/** Settings sheet → { settings partial, categories } with row-level errors. */
+function readSettingsSheet(rows, report) {
+  const out = { values: {}, categories: [] };
+  if (!rows.length) return out;
+  const head = rows[0].map(normHeader);
+  let catCol = head.indexOf('categories'); if (catCol < 0) catCol = 3;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const name = String(r[0] ?? '').trim().toLowerCase();
+    const map = SETTING_ROWS.find(([label]) => label.toLowerCase() === name);
+    if (map) {
+      const isStart = map[1].startsWith('start');
+      const m = validateMoney(r[1], { allowZero: true, allowNegative: isStart, required: false });
+      if (m.error) report.rejected.push(`Settings, row ${i + 1} (${map[0]}): ${m.error}`);
+      else out.values[map[1]] = m.value;
+    }
+    const c = String(r[catCol] ?? '').trim();
+    if (c) {
+      if (c.length > 30) report.rejected.push(`Settings, row ${i + 1}: category “${c.slice(0, 30)}…” is longer than 30 characters.`);
+      else if (!out.categories.some(x => x.toLowerCase() === c.toLowerCase())) out.categories.push(c);
+    }
+  }
+  return out;
+}
+
+async function importSpreadsheet(file) {
+  const report = { added: { task: 0, txn: 0, upcoming: 0 }, dups: [], rejected: [], notes: [] };
+  const mode = $('#s-importmode').value;
+  let sheets = {};
+  const lower = file.name.toLowerCase();
+  if (file.size > 10 * 1024 * 1024) throw new Error('That file is over 10 MB — too big to be an export from this app.');
+  if (lower.endsWith('.xlsx')) {
+    if (typeof JSZip === 'undefined') throw new Error('The Excel reader didn’t load. Make sure the “lib” folder sits next to index.html.');
+    sheets = await readXlsx(await file.arrayBuffer());
+  } else if (lower.endsWith('.csv')) {
+    const rows = parseCSV(await file.text());
+    const kind = detectKind(rows[0] || []);
+    if (!kind) throw new Error('I couldn’t tell which sheet this CSV is. Its first row should be the column headings from an export (e.g. Title, Has deadline, Deadline, Time, Priority…).');
+    sheets[SHEETS[kind]] = rows;
+  } else throw new Error('Please choose an .xlsx or .csv file.');
+
+  // Match sheets by name first, otherwise by their headings.
+  const found = { tt: null, tx: null, up: null, set: null };
+  for (const [name, rows] of Object.entries(sheets)) {
+    const byName = Object.keys(SHEETS).find(k => SHEETS[k].toLowerCase() === name.trim().toLowerCase());
+    const k = byName || detectKind(rows[0] || []);
+    if (k && !found[k]) found[k] = { name, rows }; else report.notes.push(`Sheet “${name}” was ignored (not recognised).`);
+  }
+  if (!found.tt && !found.tx && !found.up && !found.set) throw new Error('No recognisable sheets found. Use a file exported from this app as a template.');
+
+  // Build into a working copy so a "replace" import is all-or-nothing.
+  const prev = state;
+  const work = JSON.parse(JSON.stringify(mode === 'replace' ? { ...defaultState(), settings: { ...state.settings, categories: state.settings.categories.slice() } } : state));
+  state = work;
+  try {
+    if (found.set) {
+      const s = readSettingsSheet(found.set.rows, report);
+      if (mode === 'replace') {
+        Object.assign(state.settings, s.values);
+        if (s.categories.length) state.settings.categories = s.categories;
+      } else {
+        const newCats = s.categories.filter(c => !state.settings.categories.some(x => x.toLowerCase() === c.toLowerCase()));
+        state.settings.categories.push(...newCats);
+        if (newCats.length) report.notes.push(`Added new categories: ${newCats.join(', ')}.`);
+        if (Object.keys(s.values).length) report.notes.push('Balances, budget and goal from the Settings sheet were not changed (you chose “Add to my data”). Use “Replace” to apply them.');
+      }
+    }
+    const now = new Date().toISOString();
+    const keys = { task: new Set(state.tasks.map(taskKey)), txn: new Set(state.transactions.map(txnKey)), upcoming: new Set(state.upcoming.map(upKey)) };
+    for (const k of ['tt', 'tx', 'up']) {
+      if (!found[k]) continue;
+      for (const it of rowsToItems(k, found[k].rows, found[k].name, report)) {
+        const v = it.value;
+        if (it.kind === 'task') {
+          const key = taskKey(v); if (keys.task.has(key)) { report.dups.push(`${it.sheetName} row ${it.rowNo}`); continue; }
+          keys.task.add(key); state.tasks.push({ ...v, id: uid(), doneAt: v.done ? now : '', createdAt: now }); report.added.task++;
+        } else if (it.kind === 'upcoming') {
+          const { type, from, to, ...rest } = v; const key = upKey(rest);
+          if (keys.upcoming.has(key)) { report.dups.push(`${it.sheetName} row ${it.rowNo}`); continue; }
+          keys.upcoming.add(key); state.upcoming.push({ ...rest, id: uid(), createdAt: now }); report.added.upcoming++;
+        } else {
+          const key = txnKey(v); if (keys.txn.has(key)) { report.dups.push(`${it.sheetName} row ${it.rowNo}`); continue; }
+          keys.txn.add(key); state.transactions.push({ ...v, id: uid(), createdAt: now }); report.added.txn++;
+        }
+      }
+    }
+  } catch (e) { state = prev; throw e; }
+  if (mode === 'replace' && !confirm(`Replace ALL your current data with this file?\n\nIt contains ${report.added.task} timetable items, ${report.added.txn} transactions and ${report.added.upcoming} upcoming expenses${report.rejected.length ? ` (${report.rejected.length} rows rejected)` : ''}.`)) {
+    state = prev; report.cancelled = true; return report;
+  }
+  save();
+  return report;
+}
+function showImportReport(el, report, err) {
+  if (err) { el.innerHTML = `<div class="err-summary">${esc(err.message || String(err))}</div>`; return; }
+  if (report.cancelled) { el.innerHTML = '<p class="sub">Import cancelled — nothing changed.</p>'; return; }
+  const a = report.added;
+  el.innerHTML = `<div class="confirm" style="margin-top:0">${ICON.tick}<div><strong>Import finished.</strong><br>
+    Added ${plural(a.task, 'timetable item')}, ${plural(a.txn, 'transaction')} and ${plural(a.upcoming, 'upcoming expense')}.</div></div>
+    ${report.dups.length ? `<p class="sub" style="margin-top:10px">${plural(report.dups.length, 'row')} skipped because they were already in your data: ${esc(report.dups.join(', '))}.</p>` : ''}
+    ${report.notes.map(n => `<p class="sub">${esc(n)}</p>`).join('')}
+    ${report.rejected.length ? `<div class="err-summary" style="margin-top:10px"><strong>${plural(report.rejected.length, 'row')} rejected — please fix and import again:</strong>
+      <ul>${report.rejected.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>` : '<p class="sub">No rows were rejected.</p>'}`;
+}
+
+/* =========================================================================
+   SECTION N — EXPORT/IMPORT: JSON BACKUP + FILE DOWNLOAD HELPER
+   ========================================================================= */
+async function downloadFile(name, blob) {
+  // iPhone home-screen apps can't always "download"; the share sheet works there.
+  const standalone = window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (standalone && isIOS && navigator.canShare) {
+    try {
+      const file = new File([blob], name, { type: blob.type });
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function exportJSON() {
+  state.settings.lastBackupAt = todayISO();
+  save();
+  const data = { ...state, exportedAt: new Date().toISOString() };
+  downloadFile(`my-organiser-backup-${todayISO()}.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  renderSettings();
+  toast('Backup downloaded. Keep it somewhere safe, like iCloud Drive.');
+}
+async function importJSON(file) {
+  const el = $('#json-report');
+  try {
+    if (file.size > 10 * 1024 * 1024) throw new Error('That file is over 10 MB — too big to be a backup from this app.');
+    let obj;
+    try { obj = JSON.parse(await file.text()); } catch { throw new Error('This file isn’t a valid backup (it’s not readable JSON).'); }
+    if (!obj || obj.app !== 'my-organiser') throw new Error('This doesn’t look like a My Organiser backup file.');
+    const { state: s, rejected } = sanitiseState(obj);
+    if (!confirm(`Restore this backup? It REPLACES everything currently in the app.\n\n${s.tasks.length} timetable items, ${s.transactions.length} transactions, ${s.upcoming.length} upcoming expenses${rejected.length ? `\n${rejected.length} items can’t be read and will be skipped.` : ''}`)) {
+      el.innerHTML = '<p class="sub">Restore cancelled — nothing changed.</p>'; return;
+    }
+    s.settings.theme = state.settings.theme;
+    state = s; save(); applyTheme(); fillCategorySelect('');
+    el.innerHTML = `<div class="confirm" style="margin-top:0">${ICON.tick}<div><strong>Backup restored.</strong> ${s.tasks.length} timetable items, ${s.transactions.length} transactions, ${s.upcoming.length} upcoming expenses.</div></div>
+      ${rejected.length ? `<div class="err-summary" style="margin-top:10px"><strong>${plural(rejected.length, 'item')} skipped:</strong><ul>${rejected.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}`;
+    renderSettings();
+  } catch (e) { el.innerHTML = `<div class="err-summary">${esc(e.message)}</div>`; }
+}
+
+/* =========================================================================
+   SECTION O — SAMPLE DATA (generic only)
+   ========================================================================= */
+function sampleData() {
+  const t = todayISO(), now = new Date().toISOString();
+  const task = (title, offset, priority, time = '', note = '') => ({ id: uid(), title, hasDeadline: offset !== null, date: offset !== null ? addDays(t, offset) : '', time, priority, note, done: false, doneAt: '', createdAt: now });
+  const tx = (title, type, account, amount, category, offset, from = '', to = '') => ({ id: uid(), title, type, account, from, to, amount, category, date: addDays(t, offset), createdAt: now });
+  return {
+    tasks: [
+      task('Submit job application (sample company)', 2, 'High', '', 'Tailor the cover letter first'),
+      task('Online assessment — practice tests', 0, 'High', '18:00'),
+      task('Coursework essay draft', 5, 'Medium'),
+      task('Shadowing day — plan travel', 9, 'Medium', '09:00'),
+      task('Return library books', -1, 'Low'),
+      task('Update CV', null, 'Medium'),
+      task('Reply to careers adviser', null, 'Low')
+    ],
+    transactions: [
+      tx('Student loan instalment', 'in', 'HSBC', 120000, 'Other', -9),
+      tx('Weekly food shop', 'out', 'HSBC', 3240, 'Food', -2),
+      tx('Train to interview', 'out', 'HSBC', 1860, 'Travel', -4),
+      tx('Textbook', 'out', 'HSBC', 2499, 'Study', -6),
+      tx('Phone bill', 'out', 'HSBC', 1200, 'Bills', -8),
+      tx('Cinema', 'out', 'HSBC', 950, 'Fun', 0),
+      tx('Move to savings', 'transfer', '', 10000, '', -9, 'HSBC', 'Monzo')
+    ],
+    upcoming: [
+      { id: uid(), title: 'Rent', account: 'HSBC', amount: 52000, category: 'Bills', date: t, due: addDays(t, 12), createdAt: now },
+      { id: uid(), title: 'Graduation gown hire', account: 'HSBC', amount: 4500, category: 'Study', date: t, due: addDays(t, 30), createdAt: now }
+    ]
+  };
+}
+
+/* =========================================================================
+   SECTION P — THEME, TOAST, EVENTS, START-UP
+   ========================================================================= */
+function effectiveDark() {
+  const th = state.settings.theme;
+  return th === 'dark' || (th === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function applyTheme() {
+  const th = state.settings.theme;
+  if (th === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', th);
+  const dark = effectiveDark();
+  const b = $('#theme-btn');
+  b.innerHTML = dark ? ICON.sun : ICON.moon;
+  b.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  $$('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#121614' : '#F6F7F5'));
+}
+
+let toastTimer;
+function toast(msg, undoFn) {
+  const el = $('#toast');
+  clearTimeout(toastTimer);
+  el.innerHTML = `<span>${esc(msg)}</span>${undoFn ? '<button type="button" id="toast-undo">Undo</button>' : ''}`;
+  if (undoFn) $('#toast-undo').onclick = () => { undoFn(); el.innerHTML = ''; };
+  toastTimer = setTimeout(() => { el.innerHTML = ''; }, undoFn ? 7000 : 3500);
+}
+/** Re-render but keep keyboard focus on the "same" control. */
+function rerenderKeepFocus() {
+  const key = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.fkey : null;
+  renderAll();
+  if (key) { const el = document.querySelector(`[data-fkey="${CSS.escape(key)}"]`); if (el) el.focus(); }
+}
+function removeWithUndo(listName, id, label) {
+  const list = state[listName], i = list.findIndex(x => x.id === id);
+  if (i < 0) return;
+  const [item] = list.splice(i, 1);
+  save(); rerenderKeepFocus();
+  toast(`Deleted “${item.title}”.`, () => { state[listName].splice(Math.min(i, state[listName].length), 0, item); save(); renderAll(); });
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const a = btn.dataset.action, id = btn.dataset.id;
+  switch (a) {
+    case 'toggle-theme':
+      state.settings.theme = effectiveDark() ? 'light' : 'dark'; save(); applyTheme(); if (currentPage === 'settings') renderSettings(); break;
+    case 'tt-tab': ttTab = btn.dataset.tab; rerenderKeepFocus(); break;
+    case 'toggle-done': {
+      const t = state.tasks.find(x => x.id === id); if (!t) break;
+      t.done = !t.done; t.doneAt = t.done ? new Date().toISOString() : '';
+      save();
+      // Keep focus somewhere sensible: the item moves to another tab, so focus the tab bar.
+      renderAll();
+      const nextTick = document.querySelector('.tick'); (nextTick || $('#tab-' + ttTab)).focus();
+      toast(t.done ? `Nice — “${t.title}” is done.` : `“${t.title}” moved back to your list.`, () => { t.done = !t.done; t.doneAt = t.done ? new Date().toISOString() : ''; save(); renderAll(); });
+      break;
+    }
+    case 'edit-task': startEdit('task', id, 'timetable'); break;
+    case 'edit-txn': startEdit('txn', id, 'budget'); break;
+    case 'edit-up': startEdit('upcoming', id, 'budget'); break;
+    case 'delete-task': removeWithUndo('tasks', id); break;
+    case 'delete-txn': removeWithUndo('transactions', id); break;
+    case 'delete-up': removeWithUndo('upcoming', id); break;
+    case 'pay-up': {
+      const i = state.upcoming.findIndex(x => x.id === id); if (i < 0) break;
+      const [u] = state.upcoming.splice(i, 1);
+      const tx = { id: uid(), title: u.title, type: 'out', account: u.account, from: '', to: '', amount: u.amount, category: u.category, date: todayISO(), createdAt: new Date().toISOString() };
+      state.transactions.push(tx); save(); renderAll();
+      toast(`“${u.title}” recorded as paid.`, () => { state.transactions = state.transactions.filter(x => x.id !== tx.id); state.upcoming.splice(i, 0, u); save(); renderAll(); });
+      break;
+    }
+    case 'ics-one': { const t = state.tasks.find(x => x.id === id); if (t) exportICS([t], `${t.title.replace(/[^\w\- ]+/g, '').trim().slice(0, 40) || 'deadline'}.ics`); break; }
+    case 'ics-all': exportICS(sortByUrgency(state.tasks.filter(t => !t.done && t.hasDeadline), todayISO()), `my-organiser-deadlines-${todayISO()}.ics`); break;
+    case 'chart-range': chartRange = btn.dataset.range; rerenderKeepFocus(); break;
+    case 'tx-more': txShow += 20; renderBudget(); break;
+    case 'cancel-edit': { const back = editing ? editing.returnTo : 'add'; editing = null; resetAddForm(); go(back); break; }
+    case 'del-cat': {
+      const i = +btn.dataset.i, c = state.settings.categories[i];
+      if (state.settings.categories.length <= 1) { $('#e-newcat').textContent = 'Keep at least one category.'; break; }
+      const used = state.transactions.filter(t => t.category === c).length + state.upcoming.filter(u => u.category === c).length;
+      if (used && !confirm(`“${c}” is used by ${plural(used, 'entry')}. They’ll keep the label, but you won’t be able to choose it for new ones. Remove it?`)) break;
+      state.settings.categories.splice(i, 1); save(); fillCategorySelect(''); renderSettings();
+      const next = $(`[data-fkey="cat-${Math.min(i, state.settings.categories.length - 1)}"]`); if (next) next.focus();
+      break;
+    }
+    case 'export-xlsx':
+      if (typeof JSZip === 'undefined') { toast('The Excel library didn’t load — keep the “lib” folder next to index.html.'); break; }
+      btn.disabled = true;
+      buildXlsx().then(b => downloadFile(`my-organiser-${todayISO()}.xlsx`, b)).catch(err => toast('Export failed: ' + err.message)).finally(() => { btn.disabled = false; });
+      break;
+    case 'export-json': exportJSON(); break;
+    case 'load-sample': {
+      if ((state.tasks.length || state.transactions.length || state.upcoming.length) && !confirm('Add sample items alongside your own data? You can delete them one by one later.')) break;
+      const s = sampleData(); state.tasks.push(...s.tasks); state.transactions.push(...s.transactions); state.upcoming.push(...s.upcoming);
+      save(); renderSettings(); toast('Sample data added. Have a look at Timetable and Budget.'); break;
+    }
+    case 'clear-all':
+      if (!confirm('Delete ALL timetable items, transactions, upcoming expenses and settings from this device?\n\nThis can’t be undone. Export a backup first if you’re unsure.')) break;
+      { const theme = state.settings.theme; state = defaultState(); state.settings.theme = theme; save(); fillCategorySelect(''); renderSettings(); toast('All data cleared.'); }
+      break;
+    case 'dismiss-banner': store.loadProblems = 0; renderStorageBanner(); break;
+  }
+});
+
+// Keyboard: arrow keys move between timetable tabs (standard tab pattern)
+document.addEventListener('keydown', e => {
+  const tab = e.target.closest && e.target.closest('[role="tab"]');
+  if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  const keys = TABS.map(t => t[0]); let i = keys.indexOf(ttTab);
+  if (e.key === 'ArrowLeft') i = (i + keys.length - 1) % keys.length;
+  if (e.key === 'ArrowRight') i = (i + 1) % keys.length;
+  if (e.key === 'Home') i = 0; if (e.key === 'End') i = keys.length - 1;
+  ttTab = keys[i]; renderTimetable(); $('#tab-' + ttTab).focus();
+});
+
+document.addEventListener('change', e => {
+  const id = e.target.id;
+  if (['f-dest', 'f-hasdl', 'f-type'].includes(id)) syncAddVisibility();
+  if (['f-date', 'f-bdate', 'f-due'].includes(id)) updateDateHint();
+  if (id === 'f-from' && $('#f-from').value === $('#f-to').value) $('#f-to').value = $('#f-from').value === 'HSBC' ? 'Monzo' : 'HSBC';
+  if (id === 'f-to' && $('#f-from').value === $('#f-to').value) $('#f-from').value = $('#f-to').value === 'HSBC' ? 'Monzo' : 'HSBC';
+  if (id === 'tx-filter') { txFilter = e.target.value; txShow = 20; rerenderKeepFocus(); }
+  if (id === 's-theme') { state.settings.theme = e.target.value; save(); applyTheme(); }
+  if (id === 'import-file' && e.target.files[0]) {
+    const f = e.target.files[0], el = $('#import-report');
+    el.innerHTML = '<p class="sub">Reading file…</p>';
+    importSpreadsheet(f).then(r => { showImportReport(el, r); fillCategorySelect(''); renderSettings(); }).catch(err => showImportReport(el, null, err)).finally(() => { e.target.value = ''; });
+  }
+  if (id === 'import-json' && e.target.files[0]) { importJSON(e.target.files[0]).finally(() => { e.target.value = ''; }); }
+});
+document.addEventListener('input', e => {
+  if (['f-date', 'f-bdate', 'f-due'].includes(e.target.id)) updateDateHint();
+  // Clear an error as soon as the person starts fixing that field
+  if (e.target.getAttribute && e.target.getAttribute('aria-invalid') === 'true') {
+    e.target.removeAttribute('aria-invalid');
+    const err = $('#e-' + e.target.id.replace(/^[fs]-/, '')); if (err) err.textContent = '';
+  }
+});
+
+$('#add-form').addEventListener('submit', onAddSubmit);
+
+$('#money-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const form = $('#money-form'); clearErrors(form); $('#money-saved').textContent = '';
+  const fields = [['starthsbc', 'startHSBC', true], ['startmonzo', 'startMonzo', true], ['budget', 'monthlyBudget', false], ['goal', 'savingsGoal', false]];
+  const errors = {}, vals = {};
+  for (const [f, key, neg] of fields) {
+    const r = validateMoney($('#s-' + f).value, { allowZero: true, allowNegative: neg, required: false });
+    if (r.error) errors[f] = neg ? r.error.replace(' Choose “Money out” for spending instead.', '') : r.error.replace(' Choose “Money out” for spending instead.', ' Use 0 for none.');
+    else vals[key] = r.value;
+  }
+  if (Object.keys(errors).length) { const first = showErrors(errors, 's-'); if (first) first.focus(); return; }
+  Object.assign(state.settings, vals); save(); renderSettings();
+  $('#money-saved').textContent = 'Saved ✓';
+});
+
+$('#cat-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const inp = $('#s-newcat'), c = inp.value.trim().replace(/\s+/g, ' ');
+  $('#e-newcat').textContent = ''; inp.removeAttribute('aria-invalid');
+  let err = '';
+  if (!c) err = 'Type a category name first.';
+  else if (c.length > 30) err = 'Keep it under 30 characters.';
+  else if (state.settings.categories.some(x => x.toLowerCase() === c.toLowerCase())) err = `“${c}” is already in your list.`;
+  else if (state.settings.categories.length >= 30) err = 'That’s 30 categories — remove one before adding another.';
+  if (err) { $('#e-newcat').textContent = err; inp.setAttribute('aria-invalid', 'true'); inp.focus(); return; }
+  state.settings.categories.push(c); save(); fillCategorySelect($('#f-category').value); renderSettings();
+  inp.value = ''; inp.focus();
+});
+
+// Other tabs/windows: keep in sync if data changes there
+window.addEventListener('storage', e => { if (e.key === STORAGE_KEY) { load(); applyTheme(); fillCategorySelect(''); renderAll(); } });
+window.addEventListener('hashchange', route);
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+
+/* Midnight rollover: "Due today" etc. must update even if the app stays open overnight. */
+function checkDayChange() {
+  const t = todayISO();
+  if (t !== lastToday) {
+    const bd = $('#f-bdate');
+    if (bd.value === lastToday || !bd.value) bd.value = t;     // keep "today" default fresh
+    lastToday = t;
+    rerenderKeepFocus();
+  }
+}
+setInterval(checkDayChange, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayChange(); });
+
+/* Start-up */
+load();
+applyTheme();
+fillCategorySelect('');
+resetAddForm(false);
+renderStorageBanner();
+route();
+
+/* Offline support: register the service worker when served over http(s) (not when double-clicked from disk). */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
